@@ -1,0 +1,9 @@
+version: "3"
+
+tasks:
+  build:
+    cmds:
+      - odin build src -out:pv -collection:dependencies=dependencies
+      - cp pv test/
+    aliases: [b]
+
