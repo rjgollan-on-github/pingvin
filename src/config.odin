@@ -6,12 +6,13 @@ import lua "vendor:lua/5.4"
 
 Config :: struct {
     grid2d_file : string,
+    cross_section_dir : string, 
 }
 
 defaults :: `
 grid2d_file = ""
+cross_section_dir = "xsect"
 `
-
 
 read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     L := lua.L_newstate()
@@ -21,6 +22,10 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
 
     lua.getglobal(L, "grid2d_file")
     cfg.grid2d_file = string(lua.tostring(L, -1))
+    lua.pop(L, 1)
+
+    lua.getglobal(L, "cross_section_dir")
+    cfg.cross_section_dir = string(lua.tostring(L, -1))
     lua.pop(L, 1)
 
     return cfg

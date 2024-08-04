@@ -3,7 +3,7 @@ version: "3"
 tasks:
   build:
     cmds:
-      - odin build src -out:pvn -collection:dependencies=dependencies
-      - cp pvn test/
+      - odin build src -out:pvn
+      - cp pvn test/busemann-diffuser/
     aliases: [b]
 
