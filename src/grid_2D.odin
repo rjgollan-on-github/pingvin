@@ -4,6 +4,7 @@ import "core:os"
 import "core:strings"
 import "core:fmt"
 import "core:strconv"
+import "core:flags"
 
 Boundary :: enum{wall, symm}
 
@@ -38,7 +39,37 @@ GridFormationError :: struct {
     msg: string,
 }
 
+GenGridCmd := Command {
+    main = generate_grid,
+    description = "Generate 3D grid from 2D grid and cross sections.",
+    short_desc = "...",
+}
 
+GenGridOptions :: struct {
+    job_file: string `args:"name=job" usage:"job script (Lua file) default: job.lua"`,
+}
+
+generate_grid :: proc (args: []string) -> (result: bool) {
+    cmd_name := args[0]
+    opt := GenGridOptions{job_file="job.lua"}
+    err := flags.parse(&opt, args[1:])
+
+    if err != nil {
+        flags.print_errors(typeid_of(GenGridOptions), err, cmd_name)
+        os.exit(1)
+    }
+
+    grid: Grid_2d
+    
+    cfg := read_config_from_lua_file(opt.job_file)
+    read_su2_2d_file(cfg.grid2d_file, &grid)
+    fmt.printfln("Number of points= %d", len(grid.vertices))
+    fmt.printfln("Number of quads= %d", len(grid.quads))
+    fmt.printfln("Numer of wall elems= %d", len(grid.wall_boundary.faces))
+    fmt.printfln("Numer of symm elems= %d", len(grid.symm_boundary.faces))
+
+    return true
+}
 
 find_marker :: proc (lines: []string, marker: string) -> (line_start, n_things: int, result: bool) {
     for line, line_no in lines {

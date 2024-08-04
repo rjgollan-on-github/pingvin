@@ -4,17 +4,15 @@ import "core:os"
 import "core:fmt"
 import "core:strings"
 
-import "dependencies:cli"
-
-Command :: union {
-    GenerateGrid,
+Command :: struct {
+    main : proc ([]string) -> bool,
+    description : string,
+    short_desc : string,
 }
 
-GenerateGrid :: struct {
-    filename: string `cli:"j,jobname"`,
+PvnCommands := map[string]Command{
+    "generate-grid" = GenGridCmd,
 }
-
-
 
 main :: proc() {
     arguments := os.args
@@ -23,12 +21,20 @@ main :: proc() {
         os.exit(1)
     }
 
-    command, remaining_args, cli_error := cli.parse_arguments_as_type(arguments[1:], Command)
-    if cli_error != nil {
-        fmt.println("Failed to parse arguments: ", cli_error)
+    cmd_string := os.args[1]
+    cmd, ok := PvnCommands[cmd_string]
+    if !ok {
+        fmt.printfln("Unknown command: %s", cmd_string)
+        fmt.println("Available commands are:")
+        for key in PvnCommands {
+            fmt.printfln("%s", key)
+        }
         os.exit(1)
     }
 
+    cmd.main(os.args[1:])
+
+    /*
     switch c in command {
     case GenerateGrid:
         grid: Grid_2d
@@ -43,5 +49,6 @@ main :: proc() {
         fmt.printfln("Numer of wall elems= %d", len(grid.wall_boundary.faces))
         fmt.printfln("Numer of symm elems= %d", len(grid.symm_boundary.faces))
     }
+    */
 
 }
