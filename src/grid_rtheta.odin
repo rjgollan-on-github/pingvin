@@ -4,16 +4,12 @@ import "core:math"
 import "core:fmt"
 import "core:os"
 
-magnitude :: proc (v: Vector2) -> f64 {
-    return math.sqrt(v.x*v.x + v.y*v.y)
-}
-
 magnitude_yz :: proc (v: Vector3) -> f64 {
     return math.sqrt(v.z*v.z + v.y*v.y)
 }
 
-argument :: proc (v: Vector2) -> f64 {
-    return math.atan2(v.y, v.x)
+argument_yz :: proc (v: Vector3) -> f64 {
+    return math.atan2(v.y, v.z)
 }
 
 find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB: Vector3, result: bool) {
@@ -32,16 +28,17 @@ find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB
 }
 
 compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Section) {
-    for v, i in g.vertices {
-        r := magnitude(v)
-        theta := argument(v)
+    for vtxId, i in g.vertices {
+        v := global_data.vertices[vtxId]
+        r := magnitude_yz(v)
+        theta := argument_yz(v)
         pA, pB, ok := find_cross_section_points(xsect, theta)
         if !ok {
             fmt.printfln("Error in compute_rtheta_grid: r= %v theta= %v", r, theta)
             os.exit(1)
         }
-        theta0 := math.atan2(pA.y, pA.z)
-        theta1 := math.atan2(pB.y, pB.z)
+        theta0 := argument_yz(pA)
+        theta1 := argument_yz(pB)
         w := (theta - theta0)/(theta1 - theta0)
         r_b := (1 - w)*magnitude_yz(pA) + w*magnitude_yz(pB)
         // Now populate the rtheta grid
@@ -51,7 +48,7 @@ compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Secti
 }
 
 compute_grid_2d :: proc (g: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_Section) {
-    g.vertices = make([dynamic]Vector2, len(rtg.r_bar))
+    x := xsect.vertices[0].x
     for i in 0..<len(rtg.r_bar) {
         theta := rtg.theta[i]
         pA, pB, ok := find_cross_section_points(xsect, theta)
@@ -64,8 +61,9 @@ compute_grid_2d :: proc (g: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_Section) 
         w := (theta - theta0)/(theta1 - theta0)
         r_b := (1 - w)*magnitude_yz(pA) + w*magnitude_yz(pB)
         r := rtg.r_bar[i]*r_b
-        x := r*math.cos(theta)
+        z := r*math.cos(theta)
         y := r*math.sin(theta)
-        g.vertices[i] = {x, y}
+        append(&(global_data.vertices), Vector3{x, y, z})
+        append(&(g.vertices), VtxInt(len(global_data.vertices)-1))
     }
 }

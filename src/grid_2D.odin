@@ -17,7 +17,7 @@ Boundary_2d :: struct {
 Quad :: distinct [4]int
 
 Grid_2d :: struct {
-    vertices: [dynamic]Vector2,
+    vertices: [dynamic]VtxInt,
     quads: []Quad,
     wall_boundary: ^Boundary_2d,
     symm_boundary: ^Boundary_2d,
@@ -87,16 +87,16 @@ generate_grid :: proc (args: []string) -> (result: bool) {
 
     // 2. Prepare (global) r-theta grid
     allocate_rtheta_grid(len(grid.vertices))
-    compute_rtheta_grid(&(globals.rtheta_grid), &grid, &xsect)
+    compute_rtheta_grid(&(global_data.rtheta_grid), &grid, &xsect)
 
     // 3. Read in next cross-section
     xsect1 : Cross_Section
     xsect_err = read_cross_section(&xsect1, cfg.cross_section_dir, 1)
     grid1 : Grid_2d
-    grid1.quads = globals.quads[:]
-    grid1.wall_boundary = &(globals.wall_boundary)
-    grid1.symm_boundary = &(globals.wall_boundary)
-    compute_grid_2d(&grid1, &(globals.rtheta_grid), &(xsect1))
+    grid1.quads = global_data.quads[:]
+    grid1.wall_boundary = &(global_data.wall_boundary)
+    grid1.symm_boundary = &(global_data.wall_boundary)
+    compute_grid_2d(&grid1, &(global_data.rtheta_grid), &(xsect1))
     write_grid_2d_as_vtk("test-g1.vtk", &grid1)
     
     
@@ -153,17 +153,18 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
         return GridReadingError{msg=msg}
     }
     // Initialise vertices array and start to populate
-    grid.vertices = make([dynamic]Vector2, n_points)
+    global_data.vertices = make([dynamic]Vector3, n_points)
     for line in lines[line_points_start:][:n_points] {
         tokens = strings.fields(line)
         if len(tokens) != 3 {
             msg := fmt.tprintf("Error reading points in SU2 file '%s'. Three items expected on line.", filepath)
             return GridReadingError{msg=msg}
         }
-        x := strconv.atof(tokens[0])
+        z := strconv.atof(tokens[0])
         y := strconv.atof(tokens[1])
         i := strconv.atoi(tokens[2])
-        grid.vertices[i] = {x, y}
+        global_data.vertices[i] = {0.0, y, z}
+        append(&(grid.vertices), VtxInt(i))
     }
 
     // 2. Find elements
@@ -174,7 +175,7 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
         return GridReadingError{msg=msg}
     }
     allocate_quads(n_elem)
-    grid.quads = globals.quads[:]
+    grid.quads = global_data.quads[:]
     for line in lines[line_elem_start:][:n_elem] {
         tokens = strings.fields(line)
         if len(tokens) != 6 {
@@ -213,8 +214,8 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
         msg := fmt.tprintf("Error in SU2 file. 'MARKER_TAG= wall' not found.")
         return GridFormationError{msg=msg}
     }
-    globals.wall_boundary.faces = make([dynamic]Face2, n_wall_elems)
-    grid.wall_boundary = &(globals.wall_boundary)
+    global_data.wall_boundary.faces = make([dynamic]Face2, n_wall_elems)
+    grid.wall_boundary = &(global_data.wall_boundary)
     for line, i in lines[line_wall_elems:][:n_wall_elems] {
         tokens = strings.fields(line)
         if len(tokens) != 3 {
@@ -236,8 +237,8 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
         msg := fmt.tprintf("Error in SU2 file. 'MARKER_TAG= symm' not found.")
         return GridFormationError{msg=msg}
     }
-    globals.symm_boundary.faces = make([dynamic]Face2, n_symm_elems)
-    grid.symm_boundary = &(globals.symm_boundary)
+    global_data.symm_boundary.faces = make([dynamic]Face2, n_symm_elems)
+    grid.symm_boundary = &(global_data.symm_boundary)
     for line, i in lines[line_symm_elems:][:n_symm_elems] {
         tokens = strings.fields(line)
         if len(tokens) != 3 {
@@ -271,8 +272,9 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
     fmt.fprintln(f, "ASCII")
     fmt.fprintln(f, "DATASET UNSTRUCTURED_GRID")
     fmt.fprintfln(f, "POINTS %d double", len(g.vertices))
-    for v in g.vertices {
-        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(v.x), uoflowz(v.y), 0.0)
+    for v_id in g.vertices {
+        v := global_data.vertices[v_id]
+        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(v.x), uoflowz(v.y), uoflowz(v.z))
     }
     n_cells := len(g.quads)
     fmt.fprintln(f, "")
