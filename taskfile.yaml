@@ -7,3 +7,9 @@ tasks:
       - cp pvn test/busemann-diffuser/
     aliases: [b]
 
+  test:
+    cmds:
+      - odin test src
+    aliases: [t]
+
+

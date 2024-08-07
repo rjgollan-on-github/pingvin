@@ -3,7 +3,6 @@ package pingvin
 Pvn_Global_Data :: struct {
     vertices: [dynamic]Vector3,
     rtheta_grid: Grid_rtheta,
-    quads: [dynamic]Quad,
     wall_boundary: Boundary_2d,
     symm_boundary: Boundary_2d,
 }
@@ -15,6 +14,3 @@ allocate_rtheta_grid :: proc (n_points: int) {
     global_data.rtheta_grid.theta = make([dynamic]f64, n_points)
 }
 
-allocate_quads :: proc (n_quads: int) {
-    global_data.quads = make([dynamic]Quad, n_quads)
-}
