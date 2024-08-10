@@ -2,9 +2,12 @@ package pingvin
 
 Pvn_Global_Data :: struct {
     vertices: [dynamic]Vector3,
+    quads: [dynamic]Quad,
     rtheta_grid: Grid_rtheta,
     wall_boundary: Boundary_2d,
     symm_boundary: Boundary_2d,
+    hexes: [dynamic]Hex,
+    volumes: [dynamic]f64,
 }
 
 global_data : Pvn_Global_Data

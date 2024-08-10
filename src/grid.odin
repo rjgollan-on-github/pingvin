@@ -169,6 +169,14 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
         msg := fmt.tprintf("Error reading NELEM in SU2 file '%s'", filepath)
         return GridReadingError{msg=msg}
     }
+    // This looks like duplication, but...
+    // We want to store a single global list of
+    // quad integers because this is useful to
+    // write out 2D slices if needed (without recomputing integers
+    // for a VTK files).
+    // However, we also need grid-specific access of quads to the
+    // global vertices array.
+    global_data.quads = make([dynamic]Quad, n_elem)
     grid.quads = make([dynamic]Quad, n_elem)
     for line in lines[line_elem_start:][:n_elem] {
         tokens = strings.fields(line)
@@ -182,10 +190,11 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
             return GridReadingError{msg=msg}
         }
         i := strconv.atoi(tokens[5])
-        grid.quads[i] = {VtxId(strconv.atoi(tokens[1])),
-                         VtxId(strconv.atoi(tokens[2])),
-                         VtxId(strconv.atoi(tokens[3])),
-                         VtxId(strconv.atoi(tokens[4]))}
+        global_data.quads[i] = {VtxId(strconv.atoi(tokens[1])),
+                                VtxId(strconv.atoi(tokens[2])),
+                                VtxId(strconv.atoi(tokens[3])),
+                                VtxId(strconv.atoi(tokens[4]))}
+        grid.quads[i] = global_data.quads[i]
     }
 
     // 3. Collate boundaries
@@ -266,7 +275,7 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
     defer os.close(f)
 
     fmt.fprintln(f, "# vtk DataFile Version 2.0")
-    fmt.fprintln(f, "grid_2d, created by pingvin 0.0.1")
+    fmt.fprintfln(f, "grid_2d, created by pingvin %s", PINGVIN_VERSION)
     fmt.fprintln(f, "ASCII")
     fmt.fprintln(f, "DATASET UNSTRUCTURED_GRID")
     fmt.fprintfln(f, "POINTS %d double", len(g.vertices))
@@ -274,11 +283,11 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
         v := global_data.vertices[v_id]
         fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(v.x), uoflowz(v.y), uoflowz(v.z))
     }
-    n_cells := len(g.quads)
+    n_cells := len(global_data.quads)
     fmt.fprintln(f, "")
-    fmt.fprintfln(f, "CELLS %d %d", n_cells, n_cells*5)
-    for q in g.quads {
-        fmt.fprintfln(f, "%d %d %d %d %d", 4, q[0], q[1], q[2], q[3])
+    fmt.fprintfln(f, "CELLS %d %d", n_cells, n_cells*(int(VTKVtxCount.quad)+1))
+    for q in global_data.quads {
+        fmt.fprintfln(f, "%d %d %d %d %d", VTKVtxCount.quad, q[0], q[1], q[2], q[3])
     }
     fmt.fprintfln(f, "CELL_TYPES %d", n_cells)
     for i in 0..<n_cells {
@@ -355,3 +364,54 @@ compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_S
     	g.quads[i] = g_prev.quads[i] + n_offset
     } 
 }
+
+/*
+ * Functions for building 3D cells from 2D grid planes.
+ */
+
+hex_from_quads :: proc (q0, q1: Quad) -> (hex: Hex) {
+    hex = Hex{q0[0], q0[1], q0[2], q0[3], 
+              q1[0], q1[1], q1[2], q1[3]}
+    return hex
+}
+
+add_3d_slice_of_hexes_and_vols :: proc (gu, gd: ^Grid_2d) -> (result: bool) {
+    for i in 0..<len(gu.quads) {
+        hex := hex_from_quads(gu.quads[i], gd.quads[i])
+        vol := hex_volume(hex)
+        append(&global_data.hexes, hex)
+        append(&global_data.volumes, vol)
+    }
+    return true
+}
+
+/*
+ * Functions for writing 3D representation of grid
+ */
+
+write_grid_3d_as_vtk :: proc (filename: string) {
+    f, err := os.open(filename, os.O_WRONLY | os.O_CREATE, 0o644)
+    defer os.close(f)
+
+    fmt.fprintln(f, "# vtk DataFile Version 2.0")
+    fmt.fprintfln(f, "grid_3d, created by pingvin %s", PINGVIN_VERSION)
+    fmt.fprintln(f, "ASCII")
+    fmt.fprintln(f, "DATASET UNSTRUCTURED_GRID")
+    fmt.fprintfln(f, "POINTS %d double", len(global_data.vertices))
+    for v in global_data.vertices {
+        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(v.x), uoflowz(v.y), uoflowz(v.z))
+    }
+    n_cells := len(global_data.hexes)
+    fmt.fprintln(f, "")
+    fmt.fprintfln(f, "CELLS %d %d", n_cells, n_cells*(int(VTKVtxCount.hex)+1))
+    for h in global_data.hexes {
+        fmt.fprintfln(f, "%d %d %d %d %d %d %d %d %d", VTKVtxCount.hex,
+                      h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7])
+    }
+    fmt.fprintfln(f, "CELL_TYPES %d", n_cells)
+    for i in 0..<n_cells {
+        fmt.fprintfln(f, "%d", VTKElement.hex)
+    }
+    
+}
+

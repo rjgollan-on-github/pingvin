@@ -36,6 +36,7 @@ generate_grid :: proc (args: []string) -> (result: bool) {
     log.debugf("Number of quads= %d", len(grid.quads))
     log.debugf("Number of wall elems= %d", len(grid.wall_boundary.faces))
     log.debugf("Numer of symm elems= %d", len(grid.symm_boundary.faces))
+    write_grid_2d_as_vtk("test-g0.vtk", &grid)
 
     // 2. Read in cross section at initial plane
     xsect : Cross_Section
@@ -59,6 +60,11 @@ generate_grid :: proc (args: []string) -> (result: bool) {
     grid1.symm_boundary = &(global_data.wall_boundary)
     compute_grid_2d(&grid1, &grid, &(global_data.rtheta_grid), &(xsect1))
     write_grid_2d_as_vtk("test-g1.vtk", &grid1)
+
+    // 4. Make a 3D slice and write
+    add_3d_slice_of_hexes_and_vols(&grid, &grid1)
+    write_grid_3d_as_vtk("test-g3d.vtk")
+
     
     
     return true

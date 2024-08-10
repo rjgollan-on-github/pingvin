@@ -5,6 +5,8 @@ import "core:fmt"
 import "core:strings"
 import "core:log"
 
+PINGVIN_VERSION := "0.0.1"
+
 Command :: struct {
     main : proc ([]string) -> bool,
     description : string,
