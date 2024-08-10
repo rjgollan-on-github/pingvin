@@ -19,6 +19,12 @@ Quad :: [4]VtxId
 // A hexahedral element, defined by 8 vertices
 Hex :: [8]VtxId
 
+
+// A cubic bezier, defined by its 4 control points
+CubicBezier :: struct {
+    b0, b1, b2, b3: Vector3,  
+}
+
 // Element types as defined by the VTK library. 
 // Only a subset is used for our quasi-structured grids.
 VTKElement :: enum{line=3, quad=9, hex=12}

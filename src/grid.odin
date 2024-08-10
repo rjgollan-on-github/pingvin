@@ -19,18 +19,6 @@ GridInitError :: union {
     GridFormationError,
 }
 
-FileOpenFailed :: struct {
-    filename: string,
-}
-
-GridReadingError :: struct {
-    msg: string,
-}
-
-GridFormationError :: struct {
-    msg: string,
-}
-
 // Two boundary types are possible: wall and symm.
 // The wall represencts the surface of interest, eg. an inlet or wall of a nozzle.
 // 'symm' stands for symmetry. It is a numerical boundary condition to exploit
@@ -69,6 +57,24 @@ Grid_2d :: struct {
 Grid_rtheta :: struct {
     r_bar: [dynamic]f64,
     theta: [dynamic]f64,
+}
+
+/*
+ * Grid management functions
+ */
+allocate_grid_2d :: proc (grid: ^Grid_2d, n_verts, n_quads: int) {
+    grid.vertices = make([dynamic]VtxId, n_verts)
+    grid.quads = make([dynamic]Quad, n_quads)
+}
+
+delete_grid_2d :: proc(grid: ^Grid_2d) {
+    delete(grid.vertices)
+    delete(grid.quads)
+}
+
+copy_grid_2d :: proc(dst, src: ^Grid_2d) {
+    copy(dst.vertices[:], src.vertices[:])
+    copy(dst.quads[:], src.quads[:])
 }
 
 /*
@@ -296,7 +302,6 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
     
 }
 
-
 magnitude_yz :: proc (v: Vector3) -> f64 {
     return math.sqrt(v.z*v.z + v.y*v.y)
 }
@@ -306,11 +311,13 @@ argument_yz :: proc (v: Vector3) -> f64 {
 }
 
 find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB: Vector3, result: bool) {
+    //log.debugf("find: theta= %v", theta)
     for i in 0..<len(xsect.vertices)-1 {
         p0 := xsect.vertices[i]
         p1 := xsect.vertices[i+1]
         theta0 := math.atan2(p0.y, p0.z)
         theta1 := math.atan2(p1.y, p1.z)
+        //log.debugf("p0= %v p1= %v theta0= %v theta1= %v", p0, p1, theta0, theta1)
         if (theta0 <= theta) && (theta <= theta1) {
             pA = p0
             pB = p1
@@ -344,6 +351,7 @@ compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_S
     x := xsect.vertices[0].x
     for i in 0..<len(rtg.r_bar) {
         theta := rtg.theta[i]
+        //log.debugf("looking for theta= %v", theta)
         pA, pB, ok := find_cross_section_points(xsect, theta)
         if !ok {
             fmt.printfln("Error in compute_grid_2d: theta= %v", theta)
@@ -357,7 +365,7 @@ compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_S
         z := r*math.cos(theta)
         y := r*math.sin(theta)
         append(&(global_data.vertices), Vector3{x, y, z})
-        append(&(g.vertices), VtxId(len(global_data.vertices)-1))
+        g.vertices[i] = VtxId(len(global_data.vertices)-1)
     }
     n_offset := VtxId(len(g.vertices))
     for i in 0..<len(g.quads) {
@@ -413,5 +421,62 @@ write_grid_3d_as_vtk :: proc (filename: string) {
         fmt.fprintfln(f, "%d", VTKElement.hex)
     }
     
+}
+
+/*
+ * Functions for building the complete 3D grid.
+ */
+
+generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
+    start := global_data.xsects[0].vertices[0].x
+    end := global_data.xsects[len(global_data.xsects)-1].vertices[0].x
+    dx := cfg.dx
+
+    // Read grid at first plane
+    up_grid : Grid_2d
+    read_su2_2d_file(&up_grid, cfg.grid2d_file)
+    dn_grid : Grid_2d
+    allocate_grid_2d(&dn_grid, len(up_grid.vertices), len(up_grid.quads))
+    defer delete_grid_2d(&up_grid)
+    defer delete_grid_2d(&dn_grid)
+    
+    // Prepare (global) r-theta grid
+    allocate_rtheta_grid(len(up_grid.vertices))
+    compute_rtheta_grid(&global_data.rtheta_grid, &up_grid, &global_data.xsects[0])
+
+    // Create initial loft section
+    curr_loft : Cross_Section_Loft
+    n_seg := len(global_data.xsects[0].vertices)
+    allocate_cross_section_loft(&curr_loft, n_seg)
+    defer delete_cross_section_loft(&curr_loft)
+
+    create_cross_section_loft(&curr_loft, &global_data.xsects[0], &global_data.xsects[1])
+    loft_end := global_data.xsects[1].vertices[0].x
+    idx_loft_end := 1
+
+    curr_xsect : Cross_Section
+    allocate_cross_section(&curr_xsect, n_seg)
+    defer delete_cross_section(&curr_xsect)
+
+    for x := start; x < (end + 0.1*dx); x += dx {
+        // We might need to create a new loft
+        if x > loft_end {
+            // Search for new loft end in cross sections, beginning from start
+            for i in 1..<len(global_data.xsects) {
+                if x > global_data.xsects[i].vertices[0].x {
+                    idx_loft_end = i+1
+                } 
+            }
+            loft_end = global_data.xsects[idx_loft_end].vertices[0].x
+            create_cross_section_loft(&curr_loft, &global_data.xsects[idx_loft_end-1], &global_data.xsects[idx_loft_end])
+        }
+        create_cross_section(&curr_xsect, &curr_loft, x)
+        compute_grid_2d(&dn_grid, &up_grid, &global_data.rtheta_grid, &curr_xsect)
+        add_3d_slice_of_hexes_and_vols(&up_grid, &dn_grid)
+
+        // Replace up_grid with dn_grid for next step.
+        copy_grid_2d(&up_grid, &dn_grid)
+    }
+    return true
 }
 

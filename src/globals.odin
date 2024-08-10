@@ -8,6 +8,7 @@ Pvn_Global_Data :: struct {
     symm_boundary: Boundary_2d,
     hexes: [dynamic]Hex,
     volumes: [dynamic]f64,
+    xsects: [dynamic]Cross_Section,
 }
 
 global_data : Pvn_Global_Data
@@ -17,3 +18,9 @@ allocate_rtheta_grid :: proc (n_points: int) {
     global_data.rtheta_grid.theta = make([dynamic]f64, n_points)
 }
 
+delete_global_data :: proc() {
+    delete(global_data.vertices)
+    delete(global_data.quads)
+    delete(global_data.hexes)
+    delete(global_data.volumes)
+}

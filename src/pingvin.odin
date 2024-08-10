@@ -14,7 +14,8 @@ Command :: struct {
 }
 
 PvnCommands := map[string]Command{
-    "generate-grid" = GenGridCmd,
+//    "generate-grid" = GenGridCmd,
+    "preview-grid" = PreviewGridCmd,
 }
 
 main :: proc() {

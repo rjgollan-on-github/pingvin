@@ -62,5 +62,22 @@ hex_volume :: proc (h: Hex) -> (volume: f64) {
 	return volume
 }
 
+bezier_eval :: proc (bez: CubicBezier, t: f64) -> Vector3 {
+  /* use de Casteljau algorithm, but unrolled */
+  b0 := (1-t)*bez.b0 + t*bez.b1
+  b1 := (1-t)*bez.b1 + t*bez.b2
+  b2 := (1-t)*bez.b2 + t*bez.b3
+  //
+  b0 = (1-t)*b0 + t*b1
+  b1 = (1-t)*b1 + t*b2
+  //
+  b0 = (1-t)*b0 + t*b1
+  return b0
+}
+
+bezier_t_from_x :: proc (bez: CubicBezier, x: f64) -> (t: f64) {
+	t = (x - bez.b0.x)/(bez.b3.x - bez.b0.x)
+	return
+}
 
 
