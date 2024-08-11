@@ -31,5 +31,6 @@ VTKElement :: enum{line=3, quad=9, hex=12}
 
 // For ASCII output of elements in VTK format, we need to be able to compute
 // total number of values to represent a collection of elements.
-VTKVtxCount :: enum{quad=4, hex=8}
+VtxCount := #sparse [VTKElement]int{.line=2, .quad=4, .hex=8}
+
 

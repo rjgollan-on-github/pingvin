@@ -291,9 +291,9 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
     }
     n_cells := len(global_data.quads)
     fmt.fprintln(f, "")
-    fmt.fprintfln(f, "CELLS %d %d", n_cells, n_cells*(int(VTKVtxCount.quad)+1))
-    for q in global_data.quads {
-        fmt.fprintfln(f, "%d %d %d %d %d", VTKVtxCount.quad, q[0], q[1], q[2], q[3])
+    fmt.fprintfln(f, "CELLS %d %d", n_cells, n_cells*(VtxCount[.quad]+1))
+        for q in global_data.quads {
+        fmt.fprintfln(f, "%d %d %d %d %d", VtxCount[.quad], q[0], q[1], q[2], q[3])
     }
     fmt.fprintfln(f, "CELL_TYPES %d", n_cells)
     for i in 0..<n_cells {
@@ -411,9 +411,9 @@ write_grid_3d_as_vtk :: proc (filename: string) {
     }
     n_cells := len(global_data.hexes)
     fmt.fprintln(f, "")
-    fmt.fprintfln(f, "CELLS %d %d", n_cells, n_cells*(int(VTKVtxCount.hex)+1))
+    fmt.fprintfln(f, "CELLS %d %d", n_cells, n_cells*(VtxCount[.hex]+1))
     for h in global_data.hexes {
-        fmt.fprintfln(f, "%d %d %d %d %d %d %d %d %d", VTKVtxCount.hex,
+        fmt.fprintfln(f, "%d %d %d %d %d %d %d %d %d", VtxCount[.hex],
                       h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7])
     }
     fmt.fprintfln(f, "CELL_TYPES %d", n_cells)
