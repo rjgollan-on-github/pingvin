@@ -1,5 +1,7 @@
 package pingvin
 
+import "core:math"
+
 // The id of a vertex *is* its index into the global array of vertices.
 // We give this a distinct integer type so that we can't use it accidentally
 // elsewhere to index into other structures.
@@ -32,5 +34,25 @@ VTKElement :: enum{line=3, quad=9, hex=12}
 // For ASCII output of elements in VTK format, we need to be able to compute
 // total number of values to represent a collection of elements.
 VtxCount := #sparse [VTKElement]int{.line=2, .quad=4, .hex=8}
+
+cross :: proc (a, b: Vector3) -> Vector3 {
+    i := a.yzx * b.zxy
+    j := a.zxy * b.yzx
+    return i - j
+}
+
+magnitude :: proc(a: Vector3) -> (mag: f64) {
+    aa := a*a
+    mag = math.sqrt(aa.x + aa.y + aa.z)
+    return mag
+}
+
+normalize :: proc(a: ^Vector3) {
+    mag := magnitude(a^)
+    a.x /= mag
+    a.y /= mag
+    a.z /= mag
+}
+
 
 

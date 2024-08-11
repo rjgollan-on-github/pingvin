@@ -1,14 +1,23 @@
 package pingvin
 
 Pvn_Global_Data :: struct {
+    // global collection of vertices
     vertices: [dynamic]Vector3,
+    // Elements related to 2D grids
     quads: [dynamic]Quad,
     rtheta_grid: Grid_rtheta,
     wall_boundary: Boundary_2d,
     symm_boundary: Boundary_2d,
+    // Elements related to 3D simulation domain
     hexes: [dynamic]Hex,
     volumes: [dynamic]f64,
+    centroids: [dynamic]Vector3,
+    cells: [dynamic]Cell,
     xsects: [dynamic]Cross_Section,
+    up_faces: #soa[dynamic]Interface,
+    dn_faces: #soa[dynamic]Interface,
+    x_faces:  #soa[dynamic]Interface,
+ 
 }
 
 global_data : Pvn_Global_Data
