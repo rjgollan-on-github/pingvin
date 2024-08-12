@@ -10,25 +10,16 @@ Slice :: struct {
     last_x_face : Interface_Id,
 }
 
-/*
-assemble_streamwise_interfaces :: proc(up_g, dn_g: ^Grid_2d) {
+assemble_initial_upstream_interfaces :: proc(up_g: ^Grid_2d) {
     n_faces := len(up_g.quads)
     // upstream faces (i_minus)
-    global_data.up_faces = make(#soa[dynamic]Interface, n_faces)
+    global_data.m_faces = make(#soa[dynamic]Interface, n_faces)
     for i in 0..<n_faces {
         area, normal := quad_area_and_normal(global_data.quads[i])
-        global_data.up_faces[i].area = area
-        global_data.up_faces[i].normal = normal
-    }
-    // downstream faces (i_plus)
-    global_data.dn_faces = make(#soa[dynamic]Interface, n_faces)
-    for i in 0..<n_faces {
-        area, normal := quad_area_and_normal(global_data.quads[i+n_faces])
-        global_data.dn_faces[i].area = area
-        global_data.dn_faces[i].normal = normal
+        global_data.m_faces[i].area = area
+        global_data.m_faces[i].normal = normal
     }
 }
-*/
 
 make_face_tag :: proc(q: Quad) -> (tag: string) {
     q := q
@@ -55,16 +46,14 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
         vol := hex_volume(hex)
         ctr := hex_centroid(hex)
         cell_id := Cell_Id(len(global_data.hexes))
-        cell := Cell{id=cell_id}
-        append(&global_data.hexes, hex)
-        append(&global_data.volumes, vol)
-        append(&global_data.centroids, ctr)
+        cell := Cell{id=cell_id, volume=vol, centroid=ctr}
         append(&global_data.cells, cell)
 
         // i_minus face (should exist)
         im_id := Interface_Id(slice_no*n_cells + i)
         im_face := global_data.m_faces[im_id]
         global_data.cells[cell_id].faces[.i_minus] = im_id
+        global_data.cells[cell_id].outsigns[.i_minus] = 1
         global_data.m_faces[im_id].left_cells = {cell_id, -1}
         if (global_data.m_faces[im_id].right_cells[0] >= 0) {
             // We can set the second left cell of the previous cell.
@@ -80,6 +69,7 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
         ip_face.right_cells = {cell_id, im_face.right_cells[0]}
         ip_face.left_cells = {-1, -1}
         global_data.cells[cell_id].faces[.i_plus] = ip_id
+        global_data.cells[cell_id].outsigns[.i_plus] = -1
         append(&global_data.m_faces, ip_face)
         
         // j_minus face
@@ -224,10 +214,12 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
     return slice
 }
 
-create_initial_slice :: proc (x: f64, up_g, dn_g: ^Grid_2d, xsect: ^Cross_Section) {
+create_initial_slice :: proc (x: f64, up_g, dn_g: ^Grid_2d, xsect: ^Cross_Section) -> (slice: Slice) {
     compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
-    add_3d_slice_of_hexes_and_vols(up_g, dn_g)
-    //assemble_streamwise_interfaces(up_g, dn_g)
+    add_3d_slice_of_hexes(up_g, dn_g)
+    assemble_initial_upstream_interfaces(up_g)
+    slice = assemble_slice_cells_and_interfaces(up_g.quads[:], dn_g.quads[:], 0)
+    return slice
 }
 
 

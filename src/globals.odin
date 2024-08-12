@@ -2,21 +2,19 @@ package pingvin
 
 Pvn_Global_Data :: struct {
     // global collection of vertices
-    vertices: [dynamic]Vector3,
+    vertices:           [dynamic]Vector3,
     // Elements related to 2D grids
-    quads: [dynamic]Quad,
-    rtheta_grid: Grid_rtheta,
-    wall_boundary: Boundary_2d,
-    symm_boundary: Boundary_2d,
+    quads:              [dynamic]Quad,
+    rtheta_grid:                 Grid_rtheta,
+    wall_boundary:               Boundary_2d,
+    symm_boundary:               Boundary_2d,
     // Elements related to 3D simulation domain
-    hexes: [dynamic]Hex,
-    volumes: [dynamic]f64,
-    centroids: [dynamic]Vector3,
-    cells: [dynamic]Cell,
-    xsects: [dynamic]Cross_Section,
-    m_faces: #soa[dynamic]Interface,  // faces oriented in marching direction (streamwise)
-    x_faces: #soa[dynamic]Interface,  // faces oriented across a slice
- 
+    hexes:              [dynamic]Hex,
+    cells:          #soa[dynamic]Cell,
+    xsects:             [dynamic]Cross_Section,
+    m_faces:        #soa[dynamic]Interface,  // faces oriented in marching direction (streamwise)
+    x_faces:        #soa[dynamic]Interface,  // faces oriented across a slice
+    slices:             [dynamic]Slice,
 }
 
 global_data : Pvn_Global_Data
@@ -30,8 +28,6 @@ delete_global_data :: proc() {
     delete(global_data.vertices)
     delete(global_data.quads)
     delete(global_data.hexes)
-    delete(global_data.volumes)
-    delete(global_data.centroids)
     delete(global_data.cells)
     delete(global_data.xsects)
     delete(global_data.m_faces)

@@ -383,12 +383,10 @@ hex_from_quads :: proc (q0, q1: Quad) -> (hex: Hex) {
     return hex
 }
 
-add_3d_slice_of_hexes_and_vols :: proc (gu, gd: ^Grid_2d) -> (result: bool) {
+add_3d_slice_of_hexes :: proc (gu, gd: ^Grid_2d) -> (result: bool) {
     for i in 0..<len(gu.quads) {
         hex := hex_from_quads(gu.quads[i], gd.quads[i])
-        vol := hex_volume(hex)
         append(&global_data.hexes, hex)
-        append(&global_data.volumes, vol)
     }
     return true
 }
@@ -472,7 +470,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
         }
         create_cross_section(&curr_xsect, &curr_loft, x)
         compute_grid_2d(&dn_grid, &up_grid, &global_data.rtheta_grid, &curr_xsect)
-        add_3d_slice_of_hexes_and_vols(&up_grid, &dn_grid)
+        add_3d_slice_of_hexes(&up_grid, &dn_grid)
 
         // Replace up_grid with dn_grid for next step.
         copy_grid_2d(&up_grid, &dn_grid)
