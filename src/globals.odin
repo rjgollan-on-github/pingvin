@@ -14,9 +14,8 @@ Pvn_Global_Data :: struct {
     centroids: [dynamic]Vector3,
     cells: [dynamic]Cell,
     xsects: [dynamic]Cross_Section,
-    up_faces: #soa[dynamic]Interface,
-    dn_faces: #soa[dynamic]Interface,
-    x_faces:  #soa[dynamic]Interface,
+    m_faces: #soa[dynamic]Interface,  // faces oriented in marching direction (streamwise)
+    x_faces: #soa[dynamic]Interface,  // faces oriented across a slice
  
 }
 
@@ -32,4 +31,9 @@ delete_global_data :: proc() {
     delete(global_data.quads)
     delete(global_data.hexes)
     delete(global_data.volumes)
+    delete(global_data.centroids)
+    delete(global_data.cells)
+    delete(global_data.xsects)
+    delete(global_data.m_faces)
+    delete(global_data.x_faces)
 }

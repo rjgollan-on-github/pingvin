@@ -1,6 +1,6 @@
 package pingvin
 
-Cell_Id :: int
+Cell_Id :: distinct int
 
 Cell :: struct {
     id :        Cell_Id,

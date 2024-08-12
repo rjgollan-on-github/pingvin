@@ -1,6 +1,6 @@
 package pingvin
 
-Interface_Id :: int
+Interface_Id :: distinct int
 
 InterfaceLabels :: enum {i_plus, i_minus, j_plus, j_minus, k_plus, k_minus}
 
