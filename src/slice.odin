@@ -2,12 +2,16 @@ package pingvin
 
 import "core:fmt"
 import "core:slice"
+import "core:os"
 
 Slice :: struct {
-    first_cell : Cell_Id,
-    last_cell  : Cell_Id,
-    first_x_face : Interface_Id,
-    last_x_face : Interface_Id,
+    first_cell :      Cell_Id,
+    last_cell  :      Cell_Id,
+    first_face:       Interface_Id,
+    last_face:        Interface_Id,
+    interior_faces:   [dynamic]Interface_Id,
+    wall_faces:       [dynamic]Interface_Id,
+    symm_faces:       [dynamic]Interface_Id,
 }
 
 assemble_initial_upstream_interfaces :: proc(up_g: ^Grid_2d) {
@@ -28,15 +32,29 @@ make_face_tag :: proc(q: Quad) -> (tag: string) {
     return tag
 }
 
+find_face :: proc(needle: Face2, haystack: ^[dynamic]Face2) -> bool {
+    for face, i in haystack {
+        if faces_are_the_same(needle, face) {
+            unordered_remove(haystack, i)
+            return true
+        }
+    }
+    return false
+}
+
 // It's convenient to assemble cells and slice interfaces at the same
 // time because we have that information handy.
-assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -> (slice: Slice) {
+assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, slice_no: int) {
     exists : bool
     jm_id, jp_id, km_id, kp_id : Interface_Id
     n_cells := len(up_q)
     slice.first_cell = Cell_Id((slice_no+1)*n_cells)
     slice.last_cell = Cell_Id((slice_no+2)*n_cells - 1)
-    slice.first_x_face = Interface_Id(len(global_data.x_faces))
+    slice.first_face = Interface_Id(len(global_data.m_faces))
+    wall_faces : [dynamic]Face2
+    append(&wall_faces, ..global_data.wall_boundary.faces[:])
+    symm_faces : [dynamic]Face2
+    append(&symm_faces, ..global_data.symm_boundary.faces[:])
     x_face_tags := make(map[string]Interface_Id)
     defer delete(x_face_tags)
     for i in 0..<n_cells {
@@ -89,6 +107,26 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
             jm_face.right_cells = {-1, -1}
             append(&global_data.x_faces, jm_face)
             global_data.cells[cell_id].outsigns[.j_minus] = 1
+            // Since this has just been created, try to figure out
+            // what type of interface it is.
+            jm_type := InterfaceType.interior
+            if slice_no == 0 {
+                needle := Face2{qu[0], qu[1]}
+                if find_face(needle, &wall_faces) {
+                    jm_type = InterfaceType.wall
+                }
+                else if find_face(needle, &symm_faces) {
+                    jm_type = InterfaceType.symm
+                }
+                #partial switch (jm_type) {
+                case .interior:
+                    append(&slice.interior_faces, jm_id)
+                case .wall:
+                    append(&slice.wall_faces, jm_id)
+                case .symm:
+                    append(&slice.symm_faces, jm_id)
+                }
+            }
         }
         else {
             // face does exist, so set its right cell
@@ -114,6 +152,26 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
             jp_face.right_cells = {-1, -1}
             append(&global_data.x_faces, jp_face)
             global_data.cells[cell_id].outsigns[.j_plus] = 1
+            // Since this has just been created, try to figure out
+            // what type of interface it is.
+            jp_type := InterfaceType.interior
+            if slice_no == 0 {
+                needle := Face2{qu[0], qu[1]}
+                if find_face(needle, &wall_faces) {
+                    jp_type = InterfaceType.wall
+                }
+                else if find_face(needle, &symm_faces) {
+                    jp_type = InterfaceType.symm
+                }
+                #partial switch (jp_type) {
+                case .interior:
+                    append(&slice.interior_faces, jp_id)
+                case .wall:
+                    append(&slice.wall_faces, jp_id)
+                case .symm:
+                    append(&slice.symm_faces, jp_id)
+                }
+            }
         }
         else {
             // face does exist, so set its right cell
@@ -139,6 +197,26 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
             km_face.right_cells = {-1, -1}
             append(&global_data.x_faces, km_face)
             global_data.cells[cell_id].outsigns[.k_minus] = 1
+            // Since this has just been created, try to figure out
+            // what type of interface it is.
+            km_type := InterfaceType.interior
+            if slice_no == 0 {
+                needle := Face2{qu[0], qu[1]}
+                if find_face(needle, &wall_faces) {
+                    km_type = InterfaceType.wall
+                }
+                else if find_face(needle, &symm_faces) {
+                    km_type = InterfaceType.symm
+                }
+                #partial switch (km_type) {
+                case .interior:
+                    append(&slice.interior_faces, km_id)
+                case .wall:
+                    append(&slice.wall_faces, km_id)
+                case .symm:
+                    append(&slice.symm_faces, km_id)
+                }
+            }
         }
         else {
             // face does exist, so set its right cell
@@ -164,6 +242,26 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
             kp_face.right_cells = {-1, -1}
             append(&global_data.x_faces, kp_face)
             global_data.cells[cell_id].outsigns[.k_plus] = 1
+            // Since this has just been created, try to figure out
+            // what type of interface it is.
+            kp_type := InterfaceType.interior
+            if slice_no == 0 {
+                needle := Face2{qu[0], qu[1]}
+                if find_face(needle, &wall_faces) {
+                    kp_type = InterfaceType.wall
+                }
+                else if find_face(needle, &symm_faces) {
+                    kp_type = InterfaceType.symm
+                }
+                #partial switch (kp_type) {
+                case .interior:
+                    append(&slice.interior_faces, kp_id)
+                case .wall:
+                    append(&slice.wall_faces, kp_id)
+                case .symm:
+                    append(&slice.symm_faces, kp_id)
+                }
+            }
         }
         else {
             // face does exist, so set its right cell
@@ -172,10 +270,10 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
         }
         global_data.cells[cell_id].faces[.k_plus] = kp_id
     }
-    slice.last_x_face = Interface_Id(len(global_data.x_faces)-1)
+    slice.last_face = Interface_Id(len(global_data.m_faces)-1)
     // With all cells and interfaces assembled, we can build out
     // the stencils for the interfaces in the cross-stream direction
-    for i in slice.first_x_face..=slice.last_x_face {
+    for i in slice.first_face..=slice.last_face {
         // Fill stencil to left
         lc_id := global_data.x_faces[i].left_cells[0]
         // find this interface in that cell's list...
@@ -211,15 +309,52 @@ assemble_slice_cells_and_interfaces :: proc(up_q, dn_q: []Quad, slice_no: int) -
             global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
         }
     }
-    return slice
+    // When building initial slice, we should now check that all boundary faces were assigned.
+    if slice_no == 0 {
+        if len(wall_faces) != 0 {
+            fmt.printfln("ERROR: There are unassigned wall faces. Number of unassigned faces are: ", len(wall_faces))
+            fmt.println("Those faces are:")
+            for f in wall_faces {
+                fmt.println(f)
+            }
+            fmt.println("Exiting!")
+            os.exit(1)
+        }
+        if len(symm_faces) != 0 {
+            fmt.printfln("ERROR: There are unassigned symm faces. Number of unassigned faces are: ", len(symm_faces))
+            fmt.println("Those faces are:")
+            for f in symm_faces {
+                fmt.println(f)
+            }
+            fmt.println("Exiting!")
+            os.exit(1)
+        }
+    }
+    else {
+        // For all subsequent slices, we can easily construct the arrays of handles by incrementing indices
+        slice0 := global_data.slices[0]
+        n_faces := len(slice0.interior_faces) + len(slice0.wall_faces) + len(slice0.symm_faces)
+        append(&slice.interior_faces, ..slice0.interior_faces[:])
+        for &face in slice.interior_faces {
+            face += Interface_Id(n_faces*slice_no)
+        }
+        append(&slice.wall_faces, ..slice0.wall_faces[:])
+        for &face in slice.wall_faces {
+            face += Interface_Id(n_faces*slice_no)
+        }
+        append(&slice.symm_faces, ..slice0.symm_faces[:])
+        for &face in slice.symm_faces {
+            face += Interface_Id(n_faces*slice_no)
+        }
+    }
 }
 
-create_initial_slice :: proc (x: f64, up_g, dn_g: ^Grid_2d, xsect: ^Cross_Section) -> (slice: Slice) {
+create_initial_slice :: proc (x: f64, up_g, dn_g: ^Grid_2d, xsect: ^Cross_Section) {
     compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
     add_3d_slice_of_hexes(up_g, dn_g)
     assemble_initial_upstream_interfaces(up_g)
-    slice = assemble_slice_cells_and_interfaces(up_g.quads[:], dn_g.quads[:], 0)
-    return slice
+    append(&global_data.slices, Slice{})
+    assemble_slice_cells_and_interfaces(&global_data.slices[0], up_g.quads[:], dn_g.quads[:], 0)
 }
 
 

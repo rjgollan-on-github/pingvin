@@ -15,6 +15,13 @@ Vector3 :: distinct [3]f64
 // define a face.
 Face2 :: [2]VtxId
 
+faces_are_the_same :: proc(fA, fB: Face2) -> bool {
+    if (fA[0] == fB[0]) && (fA[1] == fB[1]) { return true }
+    if (fA[0] == fB[1]) && (fA[1] == fB[0]) { return true }
+    // no match
+    return false
+}
+
 // A quad element is defined by four vertices (hopefully, co-planar)
 Quad :: [4]VtxId
 
