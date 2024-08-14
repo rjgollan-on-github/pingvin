@@ -9,6 +9,8 @@ InterfaceType :: enum {interior, wall, symm, off_wall}
 Interface :: struct {
     area :        f64,
     normal :      Vector3,
+    t1 :          Vector3,
+    t2 :          Vector3,
     flux :        [Conserved_Quantities]complex128,
     left :        [Primitive_Quantities]complex128,
     right :       [Primitive_Quantities]complex128,

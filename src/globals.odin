@@ -1,5 +1,13 @@
 package pingvin
 
+Pvn_Globals :: struct {
+    gamma : complex128,
+    R_gas : complex128,
+}
+
+globals := Pvn_Globals{gamma=complex(1.4, 0),
+                       R_gas=complex(287.0, 0)}
+
 Pvn_Global_Data :: struct {
     // global collection of vertices
     vertices:           [dynamic]Vector3,

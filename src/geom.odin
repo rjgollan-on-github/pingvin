@@ -1,7 +1,7 @@
 package pingvin
 
 
-quad_area_and_normal :: proc (q: Quad) -> (area: f64, normal: Vector3) {
+quad_properties :: proc (q: Quad) -> (area: f64, normal, t1, t2: Vector3) {
     A := global_data.vertices[q[0]]
     B := global_data.vertices[q[1]]
     C := global_data.vertices[q[2]]
@@ -15,10 +15,14 @@ quad_area_and_normal :: proc (q: Quad) -> (area: f64, normal: Vector3) {
     BC := cross(B_ctr, C_ctr)
     CD := cross(C_ctr, D_ctr)
     DA := cross(D_ctr, A_ctr)
+    area = 0.5*(magnitude(AB) + magnitude(BC) + magnitude(CD) + magnitude(DA))
     normal = 0.25*(AB + BC + CD + DA)
     normalize(&normal)
-    area = 0.5*(magnitude(AB) + magnitude(BC) + magnitude(CD) + magnitude(DA))
-    return area, normal
+    t1 = (B-A)+(C-D)
+    normalize(&t1)
+    t2 = cross(normal, t1)
+    normalize(&t2)
+    return area, normal, t1, t2
 }
 
 /*
