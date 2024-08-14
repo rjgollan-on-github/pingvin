@@ -38,8 +38,8 @@ flux_vector :: proc(P: [Primitive_Quantities]complex128) -> (flux: [Conserved_Qu
 flux_calc :: proc (L, R: [Primitive_Quantities]complex128) -> (flux: [Conserved_Quantities]complex128) {
     F_L := flux_vector(L)
     F_R := flux_vector(R)
-    U_L := conserved_quantities_vector(L)
-    U_R := conserved_quantities_vector(R)
+    U_L := cq_from_prim(L)
+    U_R := cq_from_prim(R)
 
     u_L := L[.xvel]
     u_R := R[.xvel]
@@ -47,7 +47,6 @@ flux_calc :: proc (L, R: [Primitive_Quantities]complex128) -> (flux: [Conserved_
     R_gas := globals.R_gas
     a_L := cmplx.sqrt(gamma*R_gas*L[.p]/L[.rho]) 
     a_R := cmplx.sqrt(gamma*R_gas*R[.p]/R[.rho])
-
     S_plus := max_complex(abs(u_L - a_L), abs(u_R - a_R), abs(u_L + a_L), abs(u_R + a_R))
 
     for &f, i in flux {

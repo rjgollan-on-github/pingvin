@@ -21,7 +21,7 @@ Primitive_Quantities :: enum {
     zvel, // z-velocity component, m/s
 }
 
-conserved_quantities_vector :: proc (P : [Primitive_Quantities]complex128) -> (U: [Conserved_Quantities]complex128) {
+cq_from_prim :: proc (P : [Primitive_Quantities]complex128) -> (U: [Conserved_Quantities]complex128) {
     rho := P[.rho]
     u := P[.xvel]
     v := P[.yvel]
@@ -36,4 +36,17 @@ conserved_quantities_vector :: proc (P : [Primitive_Quantities]complex128) -> (U
     return U
 }
 
-
+prim_from_cq :: proc (U: [Conserved_Quantities]complex128) -> (P: [Primitive_Quantities]complex128) {
+    rho := U[.mass]
+    P[.rho] = rho
+    rho_inv := 1.0/rho
+    P[.xvel] = U[.xmom]*rho_inv
+    P[.yvel] = U[.ymom]*rho_inv
+    P[.zvel] = U[.zmom]*rho_inv
+    P[.ke] = 0.5*(P[.xvel]*P[.xvel] + P[.yvel]*P[.yvel] + P[.zvel]*P[.zvel])
+    E := U[.energy]*rho_inv
+    P[.e] = E - P[.ke]
+    P[.T] = P[.e]*(globals.gamma - 1)/globals.R_gas
+    P[.p] = P[.rho]*globals.R_gas*P[.T]
+    return P
+}

@@ -5,13 +5,16 @@ import "core:slice"
 import "core:os"
 
 Slice :: struct {
+    n_cells    :      int,
     first_cell :      Cell_Id,
     last_cell  :      Cell_Id,
-    first_face:       Interface_Id,
-    last_face:        Interface_Id,
+    first_x_face:     Interface_Id,
+    last_x_face:      Interface_Id,
     interior_faces:   [dynamic]Interface_Id,
     wall_faces:       [dynamic]Interface_Id,
     symm_faces:       [dynamic]Interface_Id,
+    up_faces:         #soa[]Interface,
+    dn_faces:         #soa[]Interface,
 }
 
 assemble_initial_upstream_interfaces :: proc(up_g: ^Grid_2d) {
@@ -20,7 +23,7 @@ assemble_initial_upstream_interfaces :: proc(up_g: ^Grid_2d) {
     global_data.m_faces = make(#soa[dynamic]Interface, n_faces)
     for i in 0..<n_faces {
         area, normal, t1, t2 := quad_properties(global_data.quads[i])
-        global_data.m_faces[i].area = area
+        global_data.m_faces[i].area = complex(area, 0.0)
         global_data.m_faces[i].normal = normal
         global_data.m_faces[i].t1 = t1
         global_data.m_faces[i].t2 = t2
@@ -50,9 +53,10 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     exists : bool
     jm_id, jp_id, km_id, kp_id : Interface_Id
     n_cells := len(up_q)
+    slice.n_cells = n_cells
     slice.first_cell = Cell_Id((slice_no+1)*n_cells)
     slice.last_cell = Cell_Id((slice_no+2)*n_cells - 1)
-    slice.first_face = Interface_Id(len(global_data.m_faces))
+    slice.first_x_face = Interface_Id(len(global_data.x_faces))
     wall_faces : [dynamic]Face2
     append(&wall_faces, ..global_data.wall_boundary.faces[:])
     symm_faces : [dynamic]Face2
@@ -73,7 +77,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         im_id := Interface_Id(slice_no*n_cells + i)
         im_face := global_data.m_faces[im_id]
         global_data.cells[cell_id].faces[.i_minus] = im_id
-        global_data.cells[cell_id].outsigns[.i_minus] = 1
+        global_data.cells[cell_id].outsigns[.i_minus] = complex(1, 0)
         global_data.m_faces[im_id].left_cells = {cell_id, -1}
         if (global_data.m_faces[im_id].right_cells[0] >= 0) {
             // We can set the second left cell of the previous cell.
@@ -85,11 +89,11 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         // i_plus face (should NOT exist)
         ip_id := Interface_Id((slice_no+1)*n_cells + i)
         area, normal, t1, t2 := quad_properties(qd)
-        ip_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
+        ip_face := Interface{area=complex(area, 0.0), normal=normal, t1=t1, t2=t2}
         ip_face.right_cells = {cell_id, im_face.right_cells[0]}
         ip_face.left_cells = {-1, -1}
         global_data.cells[cell_id].faces[.i_plus] = ip_id
-        global_data.cells[cell_id].outsigns[.i_plus] = -1
+        global_data.cells[cell_id].outsigns[.i_plus] = complex(-1, 0)
         append(&global_data.m_faces, ip_face)
         
         // j_minus face
@@ -99,7 +103,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(jm_quad)
-            jm_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
+            jm_face := Interface{area=complex(area, 0), normal=normal, t1=t1, t2=t2}
             jm_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jm_tag] = jm_id
             // Set left cell while we know it, and
@@ -108,7 +112,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             jm_face.left_cells = {cell_id, -1}
             jm_face.right_cells = {-1, -1}
             append(&global_data.x_faces, jm_face)
-            global_data.cells[cell_id].outsigns[.j_minus] = 1
+            global_data.cells[cell_id].outsigns[.j_minus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
             jm_type := InterfaceType.interior
@@ -133,7 +137,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         else {
             // face does exist, so set its right cell
             global_data.x_faces[jm_id].right_cells[0] = cell_id
-            global_data.cells[cell_id].outsigns[.j_minus] = -1
+            global_data.cells[cell_id].outsigns[.j_minus] = complex(-1, 0)
         }
         global_data.cells[cell_id].faces[.j_minus] = jm_id
 
@@ -144,7 +148,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(jp_quad)
-            jp_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
+            jp_face := Interface{area=complex(area, 0), normal=normal, t1=t1, t2=t2}
             jp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jp_tag] = jp_id
             // Set left cell while we know it, and
@@ -153,7 +157,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             jp_face.left_cells = {cell_id, -1}
             jp_face.right_cells = {-1, -1}
             append(&global_data.x_faces, jp_face)
-            global_data.cells[cell_id].outsigns[.j_plus] = 1
+            global_data.cells[cell_id].outsigns[.j_plus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
             jp_type := InterfaceType.interior
@@ -178,7 +182,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         else {
             // face does exist, so set its right cell
             global_data.x_faces[jp_id].right_cells[0] = cell_id
-            global_data.cells[cell_id].outsigns[.j_plus] = -1
+            global_data.cells[cell_id].outsigns[.j_plus] = complex(-1, 0)
         }
         global_data.cells[cell_id].faces[.j_plus] = jp_id
 
@@ -189,7 +193,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(km_quad)
-            km_face := Interface{area=area, normal=normal}
+            km_face := Interface{area=complex(area, 0), normal=normal}
             km_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[km_tag] = km_id
             // Set left cell while we know it, and
@@ -198,7 +202,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             km_face.left_cells = {cell_id, -1}
             km_face.right_cells = {-1, -1}
             append(&global_data.x_faces, km_face)
-            global_data.cells[cell_id].outsigns[.k_minus] = 1
+            global_data.cells[cell_id].outsigns[.k_minus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
             km_type := InterfaceType.interior
@@ -223,7 +227,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         else {
             // face does exist, so set its right cell
             global_data.x_faces[km_id].right_cells[0] = cell_id
-            global_data.cells[cell_id].outsigns[.k_minus] = -1
+            global_data.cells[cell_id].outsigns[.k_minus] = complex(-1, 0)
         }
         global_data.cells[cell_id].faces[.k_minus] = km_id
 
@@ -234,7 +238,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(kp_quad)
-            kp_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
+            kp_face := Interface{area=complex(area, 0), normal=normal, t1=t1, t2=t2}
             kp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[kp_tag] = kp_id
             // Set left cell while we know it, and
@@ -243,7 +247,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             kp_face.left_cells = {cell_id, -1}
             kp_face.right_cells = {-1, -1}
             append(&global_data.x_faces, kp_face)
-            global_data.cells[cell_id].outsigns[.k_plus] = 1
+            global_data.cells[cell_id].outsigns[.k_plus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
             kp_type := InterfaceType.interior
@@ -268,14 +272,14 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         else {
             // face does exist, so set its right cell
             global_data.x_faces[kp_id].right_cells[0] = cell_id
-            global_data.cells[cell_id].outsigns[.k_plus] = -1
+            global_data.cells[cell_id].outsigns[.k_plus] = complex(-1, 0)
         }
         global_data.cells[cell_id].faces[.k_plus] = kp_id
     }
-    slice.last_face = Interface_Id(len(global_data.m_faces)-1)
+    slice.last_x_face = Interface_Id(len(global_data.x_faces)-1)
     // With all cells and interfaces assembled, we can build out
     // the stencils for the interfaces in the cross-stream direction
-    for i in slice.first_face..=slice.last_face {
+    for i in slice.first_x_face..=slice.last_x_face {
         // Fill stencil to left
         lc_id := global_data.x_faces[i].left_cells[0]
         // find this interface in that cell's list...
@@ -349,6 +353,9 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             face += Interface_Id(n_faces*slice_no)
         }
     }
+    // Set slices to upstream and downstream interfaces
+    slice.up_faces = global_data.m_faces[slice.first_cell:slice.last_cell+1]
+    slice.dn_faces = global_data.m_faces[slice.last_cell:][:n_cells]
 }
 
 create_initial_slice :: proc (x: f64, up_g, dn_g: ^Grid_2d, xsect: ^Cross_Section) {
@@ -357,6 +364,56 @@ create_initial_slice :: proc (x: f64, up_g, dn_g: ^Grid_2d, xsect: ^Cross_Sectio
     assemble_initial_upstream_interfaces(up_g)
     append(&global_data.slices, Slice{})
     assemble_slice_cells_and_interfaces(&global_data.slices[0], up_g.quads[:], dn_g.quads[:], 0)
+    apply_inflow_flux(global_data.slices[0].up_faces[:])
+}
+
+update_primitives :: proc (slice: ^Slice) {
+    for i in slice.first_cell..=slice.last_cell {
+        global_data.cells[i].pqs = prim_from_cq(global_data.cells[i].cqs)
+    }
+}
+
+compute_interior_fluxes :: proc (slice: ^Slice) {
+    for f_id in slice.interior_faces {
+        f := &global_data.x_faces[f_id]
+        f.flux = flux_calc(f.left, f.right)
+    }
+}
+
+compute_residuals :: proc (slice: ^Slice) {
+    for &cell in global_data.cells[slice.first_cell:slice.last_cell+1] {
+        compute_residual(&cell)
+    }
+}
+
+eval_slice_residual :: proc (slice: ^Slice) {
+    // 1. Update primitive values
+    update_primitives(slice)
+
+    // 2. Apply reconstruction (at interior and boundaries)
+    low_order_reconstruction(slice.interior_faces[:])
+    low_order_recon_boundary(slice.wall_faces[:])
+    low_order_recon_boundary(slice.symm_faces[:])
+    low_order_recon_downstream(slice.dn_faces)
+
+    // 3. Compute fluxes
+    compute_interior_fluxes(slice)
+    apply_slip_wall_flux(slice.wall_faces[:])
+    apply_symm_flux(slice.symm_faces[:])
+    apply_downstream_flux(slice.dn_faces)
+
+    // 4. Compute residual per cell
+    compute_residuals(slice)
+}
+
+prep_slice :: proc (slice, prev_slice: ^Slice) {
+    curr_offset := slice.first_cell
+    prev_offset := prev_slice.first_cell
+    for i in 0..=slice.n_cells {
+        i := Cell_Id(i)
+        global_data.cells[i+curr_offset].cqs = global_data.cells[i+prev_offset].cqs
+        global_data.cells[i+curr_offset].pqs = global_data.cells[i+prev_offset].pqs
+    }
 }
 
 

@@ -3,6 +3,7 @@ package pingvin
 Pvn_Globals :: struct {
     gamma : complex128,
     R_gas : complex128,
+    cfg:    Config,
 }
 
 globals := Pvn_Globals{gamma=complex(1.4, 0),

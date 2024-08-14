@@ -11,6 +11,9 @@ Config :: struct {
     cross_section_dir :   string,
     n_xsects :            int, 
     dx :                  f64,
+    Mach_inflow :         f64,
+    p_inflow :            f64,
+    T_inflow :            f64,
 }
 
 defaults :: `

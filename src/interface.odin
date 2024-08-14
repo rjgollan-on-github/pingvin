@@ -7,7 +7,7 @@ InterfaceLabels :: enum {i_plus, i_minus, j_plus, j_minus, k_plus, k_minus}
 InterfaceType :: enum {interior, wall, symm, off_wall}
 
 Interface :: struct {
-    area :        f64,
+    area :        complex128,
     normal :      Vector3,
     t1 :          Vector3,
     t2 :          Vector3,
