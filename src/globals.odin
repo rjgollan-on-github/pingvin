@@ -4,6 +4,8 @@ Pvn_Globals :: struct {
     gamma : complex128,
     R_gas : complex128,
     cfg:    Config,
+    start:  f64,
+    end:    f64,
 }
 
 globals := Pvn_Globals{gamma=complex(1.4, 0),
@@ -24,6 +26,9 @@ Pvn_Global_Data :: struct {
     m_faces:        #soa[dynamic]Interface,  // faces oriented in marching direction (streamwise)
     x_faces:        #soa[dynamic]Interface,  // faces oriented across a slice
     slices:             [dynamic]Slice,
+    loft:                        Cross_Section_Loft,
+    up_grid:                     Grid_2d,
+    dn_grid:                     Grid_2d,
 }
 
 global_data : Pvn_Global_Data

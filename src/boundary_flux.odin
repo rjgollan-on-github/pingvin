@@ -2,7 +2,7 @@ package pingvin
 
 import cmplx "core:math/cmplx"
 
-apply_inflow_flux :: proc (faces: #soa[]Interface) {
+apply_inflow :: proc (slice: ^Slice) {
     cfg := globals.cfg
     p := complex(cfg.p_inflow, 0)
     T := complex(cfg.T_inflow, 0)
@@ -12,14 +12,24 @@ apply_inflow_flux :: proc (faces: #soa[]Interface) {
     rho := p/(R_gas*T)
     a := cmplx.sqrt(gamma*R_gas*T)
     u := M*a
-    E := (R_gas/(gamma - 1.0))*T + 0.5*u*u
+    e := (R_gas/(gamma - 1.0))*T
+    ke := 0.5*u*u
+    E := e + ke
     flux : [Conserved_Quantities]complex128
     flux[.mass] = -1.0*rho*u
     flux[.xmom] = flux[.mass]*u - p
     flux[.energy] = flux[.mass]*E - p*u
-    for &f in faces {
+    for &f in slice.up_faces {
         f.flux = flux
-    }     
+    }
+    for &cell in global_data.cells[slice.first_cell:slice.last_cell+1] {
+        cell.pqs[.rho] = rho
+        cell.pqs[.p] = p
+        cell.pqs[.T] = T
+        cell.pqs[.e] = e
+        cell.pqs[.ke] = ke
+        cell.pqs[.xvel] = u
+    }
 }
 
 apply_downstream_flux :: proc (faces: #soa[]Interface) {

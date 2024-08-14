@@ -358,13 +358,15 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     slice.dn_faces = global_data.m_faces[slice.last_cell:][:n_cells]
 }
 
-create_initial_slice :: proc (x: f64, up_g, dn_g: ^Grid_2d, xsect: ^Cross_Section) {
+create_initial_slice :: proc (x: f64, xsect: ^Cross_Section) {
+    up_g := &global_data.up_grid
+    dn_g := &global_data.dn_grid
     compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
     add_3d_slice_of_hexes(up_g, dn_g)
     assemble_initial_upstream_interfaces(up_g)
     append(&global_data.slices, Slice{})
     assemble_slice_cells_and_interfaces(&global_data.slices[0], up_g.quads[:], dn_g.quads[:], 0)
-    apply_inflow_flux(global_data.slices[0].up_faces[:])
+    apply_inflow(&global_data.slices[0])
 }
 
 update_primitives :: proc (slice: ^Slice) {
