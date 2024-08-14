@@ -19,9 +19,11 @@ assemble_initial_upstream_interfaces :: proc(up_g: ^Grid_2d) {
     // upstream faces (i_minus)
     global_data.m_faces = make(#soa[dynamic]Interface, n_faces)
     for i in 0..<n_faces {
-        area, normal := quad_area_and_normal(global_data.quads[i])
+        area, normal, t1, t2 := quad_properties(global_data.quads[i])
         global_data.m_faces[i].area = area
         global_data.m_faces[i].normal = normal
+        global_data.m_faces[i].t1 = t1
+        global_data.m_faces[i].t2 = t2
     }
 }
 
@@ -82,8 +84,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
 
         // i_plus face (should NOT exist)
         ip_id := Interface_Id((slice_no+1)*n_cells + i)
-        area, normal := quad_area_and_normal(qd)
-        ip_face := Interface{area=area, normal=normal}
+        area, normal, t1, t2 := quad_properties(qd)
+        ip_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
         ip_face.right_cells = {cell_id, im_face.right_cells[0]}
         ip_face.left_cells = {-1, -1}
         global_data.cells[cell_id].faces[.i_plus] = ip_id
@@ -96,8 +98,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         jm_id, exists = x_face_tags[jm_tag]
         if !exists {
             // face does not yet exist
-            area, normal := quad_area_and_normal(jm_quad)
-            jm_face := Interface{area=area, normal=normal}
+            area, normal, t1, t2 := quad_properties(jm_quad)
+            jm_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
             jm_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jm_tag] = jm_id
             // Set left cell while we know it, and
@@ -141,8 +143,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         jp_id, exists = x_face_tags[jp_tag]
         if !exists {
             // face does not yet exist
-            area, normal := quad_area_and_normal(jp_quad)
-            jp_face := Interface{area=area, normal=normal}
+            area, normal, t1, t2 := quad_properties(jp_quad)
+            jp_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
             jp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jp_tag] = jp_id
             // Set left cell while we know it, and
@@ -186,7 +188,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         km_id, exists = x_face_tags[km_tag]
         if !exists {
             // face does not yet exist
-            area, normal := quad_area_and_normal(km_quad)
+            area, normal, t1, t2 := quad_properties(km_quad)
             km_face := Interface{area=area, normal=normal}
             km_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[km_tag] = km_id
@@ -231,8 +233,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         kp_id, exists = x_face_tags[kp_tag]
         if !exists {
             // face does not yet exist
-            area, normal := quad_area_and_normal(kp_quad)
-            kp_face := Interface{area=area, normal=normal}
+            area, normal, t1, t2 := quad_properties(kp_quad)
+            kp_face := Interface{area=area, normal=normal, t1=t1, t2=t2}
             kp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[kp_tag] = kp_id
             // Set left cell while we know it, and
