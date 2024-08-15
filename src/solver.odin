@@ -29,9 +29,10 @@ prep_solver :: proc () {
     
     curr_xsect : Cross_Section
     allocate_cross_section(&curr_xsect, n_seg)
+    create_cross_section(&curr_xsect, &global_data.loft, x_end_0)
     defer delete_cross_section(&curr_xsect)
 
-    create_initial_slice(x_end_0, &curr_xsect)    
+    create_initial_slice(x_end_0, &curr_xsect)
     
 
     
@@ -42,5 +43,7 @@ prep_solver :: proc () {
 
 run_solver :: proc() {}
 
-post_solver :: proc() {}
+post_solver :: proc() {
+    write_flow_field_as_vtk("test-output.vtk")
+}
 

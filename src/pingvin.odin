@@ -14,7 +14,7 @@ Command :: struct {
 }
 
 PvnCommands := map[string]Command{
-//    "generate-grid" = GenGridCmd,
+    "march" = MarchCmd,
     "preview-grid" = PreviewGridCmd,
 }
 

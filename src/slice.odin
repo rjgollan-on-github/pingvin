@@ -69,13 +69,14 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         hex := hex_from_quads(qu, qd)
         vol := hex_volume(hex)
         ctr := hex_centroid(hex)
-        cell_id := Cell_Id(len(global_data.hexes))
+        cell_id := Cell_Id(len(global_data.cells))
         cell := Cell{id=cell_id, volume=vol, centroid=ctr}
         append(&global_data.cells, cell)
 
         // i_minus face (should exist)
         im_id := Interface_Id(slice_no*n_cells + i)
         im_face := global_data.m_faces[im_id]
+        fmt.printfln("cell_id= %v, len(global_data.cells)= %v", cell_id, len(global_data.cells))
         global_data.cells[cell_id].faces[.i_minus] = im_id
         global_data.cells[cell_id].outsigns[.i_minus] = complex(1, 0)
         global_data.m_faces[im_id].left_cells = {cell_id, -1}
@@ -282,37 +283,41 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     for i in slice.first_x_face..=slice.last_x_face {
         // Fill stencil to left
         lc_id := global_data.x_faces[i].left_cells[0]
-        // find this interface in that cell's list...
-        switch (i) {
-        case global_data.cells[lc_id].faces[.j_minus]:
-            id := global_data.cells[lc_id].faces[.j_plus]
-            global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
-        case global_data.cells[lc_id].faces[.j_plus]:
-            id := global_data.cells[lc_id].faces[.j_minus]
-            global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
-        case global_data.cells[lc_id].faces[.k_minus]:
-            id := global_data.cells[lc_id].faces[.k_plus]
-            global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
-        case global_data.cells[lc_id].faces[.k_plus]:
-            id := global_data.cells[lc_id].faces[.k_minus]
-            global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+        if lc_id >= 0 {
+            // find this interface in that cell's list...
+            switch (i) {
+            case global_data.cells[lc_id].faces[.j_minus]:
+                id := global_data.cells[lc_id].faces[.j_plus]
+                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+            case global_data.cells[lc_id].faces[.j_plus]:
+                id := global_data.cells[lc_id].faces[.j_minus]
+                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+            case global_data.cells[lc_id].faces[.k_minus]:
+                id := global_data.cells[lc_id].faces[.k_plus]
+                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+            case global_data.cells[lc_id].faces[.k_plus]:
+                id := global_data.cells[lc_id].faces[.k_minus]
+                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+            }
         }
         // Fill stencil to right
         rc_id := global_data.x_faces[i].right_cells[0]
-        // find this interface in that cell's list...
-        switch (i) {
-        case global_data.cells[rc_id].faces[.j_minus]:
-            id := global_data.cells[rc_id].faces[.j_plus]
-            global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
-        case global_data.cells[rc_id].faces[.j_plus]:
-            id := global_data.cells[rc_id].faces[.j_minus]
-            global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
-        case global_data.cells[rc_id].faces[.k_minus]:
-            id := global_data.cells[rc_id].faces[.k_plus]
-            global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
-        case global_data.cells[rc_id].faces[.k_plus]:
-            id := global_data.cells[rc_id].faces[.k_minus]
-            global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+        if rc_id >= 0 {
+            // find this interface in that cell's list...
+            switch (i) {
+            case global_data.cells[rc_id].faces[.j_minus]:
+                id := global_data.cells[rc_id].faces[.j_plus]
+                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+            case global_data.cells[rc_id].faces[.j_plus]:
+                id := global_data.cells[rc_id].faces[.j_minus]
+                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+            case global_data.cells[rc_id].faces[.k_minus]:
+                id := global_data.cells[rc_id].faces[.k_plus]
+                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+            case global_data.cells[rc_id].faces[.k_plus]:
+                id := global_data.cells[rc_id].faces[.k_minus]
+                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+            }
         }
     }
     // When building initial slice, we should now check that all boundary faces were assigned.
@@ -361,6 +366,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
 create_initial_slice :: proc (x: f64, xsect: ^Cross_Section) {
     up_g := &global_data.up_grid
     dn_g := &global_data.dn_grid
+    fmt.println("Calling compute_grid_2d")
     compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
     add_3d_slice_of_hexes(up_g, dn_g)
     assemble_initial_upstream_interfaces(up_g)

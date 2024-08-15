@@ -26,7 +26,7 @@ march :: proc (args: []string) -> (result: bool) {
 
     prep_solver()
     //run_solver()
-    //post_solver()
+    post_solver()
     delete_global_data()
     return true
 }
