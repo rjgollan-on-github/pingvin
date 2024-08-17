@@ -54,13 +54,17 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     jm_id, jp_id, km_id, kp_id : Interface_Id
     n_cells := len(up_q)
     slice.n_cells = n_cells
-    slice.first_cell = Cell_Id((slice_no+1)*n_cells)
-    slice.last_cell = Cell_Id((slice_no+2)*n_cells - 1)
+    slice.first_cell = Cell_Id((slice_no)*n_cells)
+    slice.last_cell = slice.first_cell + Cell_Id(n_cells) - 1
     slice.first_x_face = Interface_Id(len(global_data.x_faces))
+    // We'll build a list of boundary faces and then check off that
+    // we've collected them during cell assembly.
     wall_faces : [dynamic]Face2
     append(&wall_faces, ..global_data.wall_boundary.faces[:])
+    defer delete(wall_faces)
     symm_faces : [dynamic]Face2
     append(&symm_faces, ..global_data.symm_boundary.faces[:])
+    defer delete(symm_faces)
     x_face_tags := make(map[string]Interface_Id)
     defer delete(x_face_tags)
     for i in 0..<n_cells {
@@ -76,7 +80,6 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         // i_minus face (should exist)
         im_id := Interface_Id(slice_no*n_cells + i)
         im_face := global_data.m_faces[im_id]
-        fmt.printfln("cell_id= %v, len(global_data.cells)= %v", cell_id, len(global_data.cells))
         global_data.cells[cell_id].faces[.i_minus] = im_id
         global_data.cells[cell_id].outsigns[.i_minus] = complex(1, 0)
         global_data.m_faces[im_id].left_cells = {cell_id, -1}
@@ -163,7 +166,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // what type of interface it is.
             jp_type := InterfaceType.interior
             if slice_no == 0 {
-                needle := Face2{qu[0], qu[1]}
+                needle := Face2{qu[2], qu[3]}
                 if find_face(needle, &wall_faces) {
                     jp_type = InterfaceType.wall
                 }
@@ -208,7 +211,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // what type of interface it is.
             km_type := InterfaceType.interior
             if slice_no == 0 {
-                needle := Face2{qu[0], qu[1]}
+                needle := Face2{qu[3], qu[0]}
                 if find_face(needle, &wall_faces) {
                     km_type = InterfaceType.wall
                 }
@@ -253,7 +256,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // what type of interface it is.
             kp_type := InterfaceType.interior
             if slice_no == 0 {
-                needle := Face2{qu[0], qu[1]}
+                needle := Face2{qu[1], qu[2]}
                 if find_face(needle, &wall_faces) {
                     kp_type = InterfaceType.wall
                 }
@@ -360,13 +363,12 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     }
     // Set slices to upstream and downstream interfaces
     slice.up_faces = global_data.m_faces[slice.first_cell:slice.last_cell+1]
-    slice.dn_faces = global_data.m_faces[slice.last_cell:][:n_cells]
+    slice.dn_faces = global_data.m_faces[slice.last_cell:slice.last_cell+Cell_Id(n_cells)+1]
 }
 
 create_initial_slice :: proc (x: f64, xsect: ^Cross_Section) {
     up_g := &global_data.up_grid
     dn_g := &global_data.dn_grid
-    fmt.println("Calling compute_grid_2d")
     compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
     add_3d_slice_of_hexes(up_g, dn_g)
     assemble_initial_upstream_interfaces(up_g)
