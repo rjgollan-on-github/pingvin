@@ -53,9 +53,38 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     }
     lua.pop(L, 1)
     if (cfg.dx <= 0.0) {
-        msg := fmt.tprintf("Error in setting 'dx'. Value must be positive. Value is %v", cfg.dx)
+        fmt.printf("Error in setting 'dx'. Value must be positive. Value is %v", cfg.dx)
+    }
+
+    lua.getglobal(L, "Mach_inflow")
+    if (!lua.isnil(L, -1)) {
+        cfg.Mach_inflow = f64(lua.tonumber(L, -1))
+    }
+    else {
+        fmt.printf("Error: 'Mach_inflow' must be set in job file.")
         os.exit(1)
     }
+    lua.pop(L, 1)
+
+    lua.getglobal(L, "p_inflow")
+    if (!lua.isnil(L, -1)) {
+        cfg.p_inflow = f64(lua.tonumber(L, -1))
+    }
+    else {
+        fmt.printf("Error: 'p_inflow' must be set in job file.")
+        os.exit(1)
+    }
+    lua.pop(L, 1)
+
+    lua.getglobal(L, "T_inflow")
+    if (!lua.isnil(L, -1)) {
+        cfg.T_inflow = f64(lua.tonumber(L, -1))
+    }
+    else {
+        fmt.printf("Error: 'T_inflow' must be set in job file.")
+        os.exit(1)
+    }
+    lua.pop(L, 1)
 
     return cfg
 }

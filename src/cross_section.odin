@@ -14,6 +14,7 @@ Cross_Section :: struct {
 }
 
 Cross_Section_Loft :: struct {
+    end:     f64,
     beziers: [dynamic]CubicBezier,
 }
 
@@ -89,6 +90,7 @@ create_cross_section_loft :: proc (loft: ^Cross_Section_Loft, up, dn: ^Cross_Sec
         b2 := b3 - (1./3)*dx*dn.slopes[i]
         loft.beziers[i] = CubicBezier{b0, b1, b2, b3}
     }
+    loft.end = dn.vertices[0].x
 }
 
 

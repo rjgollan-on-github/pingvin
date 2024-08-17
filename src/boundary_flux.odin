@@ -8,7 +8,8 @@ apply_inflow :: proc (slice: ^Slice) {
     T := complex(cfg.T_inflow, 0)
     M := complex(cfg.Mach_inflow, 0)
     gamma := globals.gamma
-    R_gas := globals.gamma
+    R_gas := globals.R_gas
+
     rho := p/(R_gas*T)
     a := cmplx.sqrt(gamma*R_gas*T)
     u := M*a

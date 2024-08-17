@@ -4,7 +4,7 @@ import "core:os"
 import "core:fmt"
 
 write_flow_field_as_vtk :: proc (filename: string) {
-    f, err := os.open(filename, os.O_WRONLY | os.O_CREATE, 0o644)
+    f, err := os.open(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
     defer os.close(f)
 
     fmt.fprintln(f, "# vtk DataFile Version 2.0")
@@ -28,10 +28,13 @@ write_flow_field_as_vtk :: proc (filename: string) {
     }
 
     fmt.fprintfln(f, "CELL_DATA %d", n_cells)
-    fmt.fprintln(f, "SCALARS rho double")
-    fmt.fprintln(f, "LOOKUP_TABLE default")
-    for cell in global_data.cells {
-        fmt.fprintfln(f, "%.18e", cell.pqs[.rho])
+    for q in Primitive_Quantities {
+        fmt.fprintfln(f, "SCALARS %s double", q)
+        fmt.fprintln(f, "LOOKUP_TABLE default")
+        for cell in global_data.cells {
+            fmt.fprintfln(f, "%.18e", real(cell.pqs[q]))
+        }
     }
+
     
 }

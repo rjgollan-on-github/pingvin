@@ -25,7 +25,7 @@ march :: proc (args: []string) -> (result: bool) {
     globals.cfg = read_config_from_lua_file(opt.job_file)
 
     prep_solver()
-    //run_solver()
+    run_solver()
     post_solver()
     delete_global_data()
     return true

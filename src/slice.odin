@@ -419,7 +419,7 @@ eval_slice_residual :: proc (slice: ^Slice) {
 prep_slice :: proc (slice, prev_slice: ^Slice) {
     curr_offset := slice.first_cell
     prev_offset := prev_slice.first_cell
-    for i in 0..=slice.n_cells {
+    for i in 0..<slice.n_cells {
         i := Cell_Id(i)
         global_data.cells[i+curr_offset].cqs = global_data.cells[i+prev_offset].cqs
         global_data.cells[i+curr_offset].pqs = global_data.cells[i+prev_offset].pqs
