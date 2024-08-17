@@ -277,7 +277,7 @@ uoflowz :: proc (q: f64, tiny : f64 = math.F32_MIN, huge : f64 = math.F32_MAX) -
 }
 
 write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
-    f, err := os.open(filename, os.O_WRONLY | os.O_CREATE, 0o644)
+    f, err := os.open(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
     defer os.close(f)
 
     fmt.fprintln(f, "# vtk DataFile Version 2.0")
@@ -396,7 +396,7 @@ add_3d_slice_of_hexes :: proc (gu, gd: ^Grid_2d) -> (result: bool) {
  */
 
 write_grid_3d_as_vtk :: proc (filename: string) {
-    f, err := os.open(filename, os.O_WRONLY | os.O_CREATE, 0o644)
+    f, err := os.open(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
     defer os.close(f)
 
     fmt.fprintln(f, "# vtk DataFile Version 2.0")
