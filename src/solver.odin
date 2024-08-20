@@ -1,5 +1,8 @@
 package pingvin
+
 import "core:fmt"
+import "core:os"
+
 prep_solver :: proc () {
     cfg := globals.cfg
     read_all_cross_sections(cfg.cross_section_dir, cfg.n_xsects)
@@ -38,7 +41,15 @@ run_solver :: proc() {
         create_cross_section(&curr_xsect, &curr_loft, x)
         create_slice(x, &curr_xsect, slice)
         // Solve slice
+        eval_slice_residual(&global_data.slices[slice])
 
+        if (slice == 0) {
+            for &cell, i  in global_data.cells {
+                fmt.printfln("cell-%d: R= %v", i, cell.R)
+            }
+            os.exit(1)
+        }
+        
         // Get up grid ready for next slice
         copy_grid_2d(&global_data.up_grid, &global_data.dn_grid)
         slice += 1

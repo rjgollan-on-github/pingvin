@@ -72,7 +72,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     for i in 0..<n_cells {
         qu := up_q[i]
         qd := dn_q[i]
-        hex := hex_from_quads(qu, qd)
+        hex := hex_from_quads(qd, qu)
         vol := hex_volume(hex)
         ctr := hex_centroid(hex)
         cell_id := Cell_Id(len(global_data.cells))
@@ -100,7 +100,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         ip_face.left_cells = {-1, -1}
         global_data.cells[cell_id].faces[.i_plus] = ip_id
         global_data.cells[cell_id].outsigns[.i_plus] = complex(-1, 0)
-        append(&global_data.m_faces, ip_face)
+        append_soa(&global_data.m_faces, ip_face)
         
         // j_minus face
         jm_quad := Quad{qu[0], qd[0], qd[1], qu[1]}
@@ -117,7 +117,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // to indicate we need to look later on
             jm_face.left_cells = {cell_id, -1}
             jm_face.right_cells = {-1, -1}
-            append(&global_data.x_faces, jm_face)
+            append_soa(&global_data.x_faces, jm_face)
             global_data.cells[cell_id].outsigns[.j_minus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
@@ -135,6 +135,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, jm_id)
                 case .wall:
                     append(&slice.wall_faces, jm_id)
+                    fmt.println("jm-wall-normal= ", normal)
                 case .symm:
                     append(&slice.symm_faces, jm_id)
                 }
@@ -162,7 +163,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // to indicate we need to look later on
             jp_face.left_cells = {cell_id, -1}
             jp_face.right_cells = {-1, -1}
-            append(&global_data.x_faces, jp_face)
+            append_soa(&global_data.x_faces, jp_face)
             global_data.cells[cell_id].outsigns[.j_plus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
@@ -180,6 +181,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, jp_id)
                 case .wall:
                     append(&slice.wall_faces, jp_id)
+                    fmt.println("jp-wall-normal= ", normal)
                 case .symm:
                     append(&slice.symm_faces, jp_id)
                 }
@@ -207,7 +209,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // to indicate we need to look later on
             km_face.left_cells = {cell_id, -1}
             km_face.right_cells = {-1, -1}
-            append(&global_data.x_faces, km_face)
+            append_soa(&global_data.x_faces, km_face)
             global_data.cells[cell_id].outsigns[.k_minus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
@@ -225,6 +227,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, km_id)
                 case .wall:
                     append(&slice.wall_faces, km_id)
+                    fmt.println("km-wall-normal= ", normal)
                 case .symm:
                     append(&slice.symm_faces, km_id)
                 }
@@ -252,7 +255,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // to indicate we need to look later on
             kp_face.left_cells = {cell_id, -1}
             kp_face.right_cells = {-1, -1}
-            append(&global_data.x_faces, kp_face)
+            append_soa(&global_data.x_faces, kp_face)
             global_data.cells[cell_id].outsigns[.k_plus] = complex(1, 0)
             // Since this has just been created, try to figure out
             // what type of interface it is.
@@ -270,6 +273,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, kp_id)
                 case .wall:
                     append(&slice.wall_faces, kp_id)
+                    fmt.println("kp-wall-normal= ", normal)
                 case .symm:
                     append(&slice.symm_faces, kp_id)
                 }
@@ -399,8 +403,8 @@ compute_interior_fluxes :: proc (slice: ^Slice) {
     }
 }
 
-compute_residuals :: proc (slice: ^Slice) {
-    for &cell in global_data.cells[slice.first_cell:slice.last_cell+1] {
+compute_residuals :: proc (slice: Slice) {
+    for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
         compute_residual(&cell)
     }
 }
@@ -422,7 +426,7 @@ eval_slice_residual :: proc (slice: ^Slice) {
     apply_downstream_flux(slice.dn_faces)
 
     // 4. Compute residual per cell
-    compute_residuals(slice)
+    compute_residuals(slice^)
 }
 
 prep_slice :: proc (slice, prev_slice: ^Slice) {

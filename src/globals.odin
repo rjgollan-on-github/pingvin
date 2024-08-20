@@ -21,7 +21,7 @@ Pvn_Global_Data :: struct {
     symm_boundary:               Boundary_2d,
     // Elements related to 3D simulation domain
     hexes:              [dynamic]Hex,
-    cells:          #soa[dynamic]Cell,
+    cells:              [dynamic]Cell,
     xsects:             [dynamic]Cross_Section,
     m_faces:        #soa[dynamic]Interface,  // faces oriented in marching direction (streamwise)
     x_faces:        #soa[dynamic]Interface,  // faces oriented across a slice

@@ -1,6 +1,7 @@
 package pingvin
 
 import cmplx "core:math/cmplx"
+import "core:fmt"
 
 apply_inflow :: proc (slice: ^Slice) {
     cfg := globals.cfg
@@ -30,6 +31,7 @@ apply_inflow :: proc (slice: ^Slice) {
         cell.pqs[.e] = e
         cell.pqs[.ke] = ke
         cell.pqs[.xvel] = u
+        cell.cqs = cq_from_prim(cell.pqs)
     }
 }
 
@@ -55,15 +57,16 @@ apply_slip_wall_flux :: proc (faces : []Interface_Id) {
         nx := complex(face.normal.x, 0.0)
         ny := complex(face.normal.y, 0.0)
         nz := complex(face.normal.z, 0.0)
-        p := face.left[.p]
         face.flux[.mass] = complex(0.0, 0.0)
         face.flux[.energy] = complex(0.0, 0.0) 
         if face.left_cells[0] >= 0 {
+            p := face.left[.p]
             face.flux[.xmom] = -1.0*p*nx
             face.flux[.ymom] = -1.0*p*ny
             face.flux[.zmom] = -1.0*p*nz
         }
         else {
+            p := face.right[.p]
             face.flux[.xmom] = p*nx
             face.flux[.ymom] = p*ny
             face.flux[.zmom] = p*nz
