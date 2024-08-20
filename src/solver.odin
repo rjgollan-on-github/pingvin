@@ -9,75 +9,39 @@ prep_solver :: proc () {
     // Read grid at first plane
     read_su2_2d_file(&global_data.up_grid, cfg.grid2d_file)
     allocate_grid_2d(&global_data.dn_grid, len(global_data.up_grid.vertices), len(global_data.up_grid.quads))
-    
+
     // Prepare (global) r-theta grid
     allocate_rtheta_grid(len(global_data.up_grid.vertices))
     compute_rtheta_grid(&global_data.rtheta_grid, &global_data.up_grid, &global_data.xsects[0])
-
-    // Create initial loft section
-    n_seg := len(global_data.xsects[0].vertices)
-    allocate_cross_section_loft(&global_data.loft, n_seg)
-    x_end_0 := globals.start + cfg.dx
-    idx_loft_end := 1
-    for i in 1..<len(global_data.xsects) {
-        if x_end_0 > global_data.xsects[i].vertices[0].x {
-            idx_loft_end = i+1
-            break
-        }
-    }
-    create_cross_section_loft(&global_data.loft, &global_data.xsects[idx_loft_end-1], &global_data.xsects[idx_loft_end])
-    
-    curr_xsect : Cross_Section
-    allocate_cross_section(&curr_xsect, n_seg)
-    create_cross_section(&curr_xsect, &global_data.loft, x_end_0)
-    defer delete_cross_section(&curr_xsect)
-
-    create_initial_slice(x_end_0, &curr_xsect)
-    
-
-    
-
-    
-    
 }
 
 run_solver :: proc() {
     dx := globals.cfg.dx
-    first_slice := true
-    slice := 0
+    slice := Slice_Id(0)
     idx_loft_end := 0
     n_seg := len(global_data.xsects[0].vertices)
+
+    curr_loft : Cross_Section_Loft
+    allocate_cross_section_loft(&curr_loft, n_seg)
+    defer delete_cross_section_loft(&curr_loft)
+    // Create an initial loft between first two segments regardless of dx value
+    // The idea is we'll update this when needed.
+    create_cross_section_loft(&curr_loft, &global_data.xsects[0], &global_data.xsects[1])
+
     curr_xsect : Cross_Section
     allocate_cross_section(&curr_xsect, n_seg)
     defer delete_cross_section(&curr_xsect)
-    for x := globals.start; x < (globals.end + 0.1*dx); x += dx {
-        // Prepare slice
-        if !first_slice {
-            if x > global_data.loft.end {
-                // Search for new loft end in cross sections
-                for i in 1..<len(global_data.xsects) {
-                    if x > global_data.xsects[i].vertices[0].x {
-                        idx_loft_end = i + 1
-                    }
-                }
-                create_cross_section_loft(&global_data.loft, &global_data.xsects[idx_loft_end-1], &global_data.xsects[idx_loft_end])
-            }
-            create_cross_section(&curr_xsect, &global_data.loft, x)
-            compute_grid_2d(&global_data.dn_grid, &global_data.up_grid, &global_data.rtheta_grid, &curr_xsect)
-            add_3d_slice_of_hexes(&global_data.up_grid, &global_data.dn_grid)
-            slice = len(global_data.slices)
-            append(&global_data.slices, Slice{})
-            assemble_slice_cells_and_interfaces(&global_data.slices[slice], global_data.up_grid.quads[:], global_data.dn_grid.quads[:], slice)
-            prep_slice(&global_data.slices[slice], &global_data.slices[slice-1])
-        }
-        else {
-            first_slice = false
-        }
 
+    for x := globals.start + dx; x < (globals.end + 0.1*dx); x += dx {
+        // Prepare slice
+        update_loft(&curr_loft, x)
+        create_cross_section(&curr_xsect, &curr_loft, x)
+        create_slice(x, &curr_xsect, slice)
         // Solve slice
 
         // Get up grid ready for next slice
         copy_grid_2d(&global_data.up_grid, &global_data.dn_grid)
+        slice += 1
     }
 }
 

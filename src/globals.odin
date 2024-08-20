@@ -26,7 +26,6 @@ Pvn_Global_Data :: struct {
     m_faces:        #soa[dynamic]Interface,  // faces oriented in marching direction (streamwise)
     x_faces:        #soa[dynamic]Interface,  // faces oriented across a slice
     slices:             [dynamic]Slice,
-    loft:                        Cross_Section_Loft,
     up_grid:                     Grid_2d,
     dn_grid:                     Grid_2d,
 }

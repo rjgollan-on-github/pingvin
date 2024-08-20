@@ -80,6 +80,19 @@ delete_cross_section_loft :: proc(loft: ^Cross_Section_Loft) {
     delete(loft.beziers)
 }
 
+update_loft :: proc(loft: ^Cross_Section_Loft, x: f64) {
+    idx_loft_end : int
+    if x > loft.end {
+        // Search for new loft end in cross sections
+        for i in 1..<len(global_data.xsects) {
+            if x > global_data.xsects[i].vertices[0].x {
+                idx_loft_end = i + 1
+            }
+        }
+        create_cross_section_loft(loft, &global_data.xsects[idx_loft_end-1], &global_data.xsects[idx_loft_end])
+    }
+}
+
 create_cross_section_loft :: proc (loft: ^Cross_Section_Loft, up, dn: ^Cross_Section) {
     n_seg := len(up.vertices)
     for i in 0..<n_seg {

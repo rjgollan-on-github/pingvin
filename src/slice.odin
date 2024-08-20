@@ -17,6 +17,8 @@ Slice :: struct {
     dn_faces:         #soa[]Interface,
 }
 
+Slice_Id :: distinct int
+
 assemble_initial_upstream_interfaces :: proc(up_g: ^Grid_2d) {
     n_faces := len(up_g.quads)
     // upstream faces (i_minus)
@@ -49,12 +51,12 @@ find_face :: proc(needle: Face2, haystack: ^[dynamic]Face2) -> bool {
 
 // It's convenient to assemble cells and slice interfaces at the same
 // time because we have that information handy.
-assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, slice_no: int) {
+assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, slice_no: Slice_Id) {
     exists : bool
     jm_id, jp_id, km_id, kp_id : Interface_Id
     n_cells := len(up_q)
     slice.n_cells = n_cells
-    slice.first_cell = Cell_Id((slice_no)*n_cells)
+    slice.first_cell = Cell_Id(int(slice_no)*n_cells)
     slice.last_cell = slice.first_cell + Cell_Id(n_cells) - 1
     slice.first_x_face = Interface_Id(len(global_data.x_faces))
     // We'll build a list of boundary faces and then check off that
@@ -78,7 +80,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         append(&global_data.cells, cell)
 
         // i_minus face (should exist)
-        im_id := Interface_Id(slice_no*n_cells + i)
+        im_id := Interface_Id(int(slice_no)*n_cells + i)
         im_face := global_data.m_faces[im_id]
         global_data.cells[cell_id].faces[.i_minus] = im_id
         global_data.cells[cell_id].outsigns[.i_minus] = complex(1, 0)
@@ -91,7 +93,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         }
 
         // i_plus face (should NOT exist)
-        ip_id := Interface_Id((slice_no+1)*n_cells + i)
+        ip_id := Interface_Id((int(slice_no)+1)*n_cells + i)
         area, normal, t1, t2 := quad_properties(qd)
         ip_face := Interface{area=complex(area, 0.0), normal=normal, t1=t1, t2=t2}
         ip_face.right_cells = {cell_id, im_face.right_cells[0]}
@@ -326,7 +328,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     // When building initial slice, we should now check that all boundary faces were assigned.
     if slice_no == 0 {
         if len(wall_faces) != 0 {
-            fmt.printfln("ERROR: There are unassigned wall faces. Number of unassigned faces are: ", len(wall_faces))
+            fmt.printfln("ERROR: There are unassigned wall faces. Number of unassigned faces are: %v", len(wall_faces))
             fmt.println("Those faces are:")
             for f in wall_faces {
                 fmt.println(f)
@@ -335,7 +337,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             os.exit(1)
         }
         if len(symm_faces) != 0 {
-            fmt.printfln("ERROR: There are unassigned symm faces. Number of unassigned faces are: ", len(symm_faces))
+            fmt.printfln("ERROR: There are unassigned symm faces. Number of unassigned faces are: %v", len(symm_faces))
             fmt.println("Those faces are:")
             for f in symm_faces {
                 fmt.println(f)
@@ -350,15 +352,15 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         n_faces := len(slice0.interior_faces) + len(slice0.wall_faces) + len(slice0.symm_faces)
         append(&slice.interior_faces, ..slice0.interior_faces[:])
         for &face in slice.interior_faces {
-            face += Interface_Id(n_faces*slice_no)
+            face += Interface_Id(n_faces*int(slice_no))
         }
         append(&slice.wall_faces, ..slice0.wall_faces[:])
         for &face in slice.wall_faces {
-            face += Interface_Id(n_faces*slice_no)
+            face += Interface_Id(n_faces*int(slice_no))
         }
         append(&slice.symm_faces, ..slice0.symm_faces[:])
         for &face in slice.symm_faces {
-            face += Interface_Id(n_faces*slice_no)
+            face += Interface_Id(n_faces*int(slice_no))
         }
     }
     // Set slices to upstream and downstream interfaces
@@ -366,15 +368,22 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     slice.dn_faces = global_data.m_faces[slice.last_cell:slice.last_cell+Cell_Id(n_cells)+1]
 }
 
-create_initial_slice :: proc (x: f64, xsect: ^Cross_Section) {
+create_slice :: proc (x: f64, xsect: ^Cross_Section, slice: Slice_Id) {
     up_g := &global_data.up_grid
     dn_g := &global_data.dn_grid
     compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
     add_3d_slice_of_hexes(up_g, dn_g)
-    assemble_initial_upstream_interfaces(up_g)
+    if (slice == 0) {
+        assemble_initial_upstream_interfaces(up_g)
+    }
     append(&global_data.slices, Slice{})
-    assemble_slice_cells_and_interfaces(&global_data.slices[0], up_g.quads[:], dn_g.quads[:], 0)
-    apply_inflow(&global_data.slices[0])
+    assemble_slice_cells_and_interfaces(&global_data.slices[slice], up_g.quads[:], dn_g.quads[:], slice)
+    if (slice == 0) {
+        apply_inflow(&global_data.slices[0])
+    }
+    else {
+        prep_slice(&global_data.slices[slice], &global_data.slices[slice-1])
+    }
 }
 
 update_primitives :: proc (slice: ^Slice) {
