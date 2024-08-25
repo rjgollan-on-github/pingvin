@@ -1,6 +1,7 @@
 package pingvin
 
 import cmplx "core:math/cmplx"
+import "core:fmt"
 
 max_c128 :: proc(z1, z2: complex128) -> complex128 {
     if real(z1) >= real(z2) {
@@ -29,7 +30,7 @@ flux_vector :: proc(P: [Primitive_Quantities]complex128) -> (flux: [Conserved_Qu
     flux[.xmom] = rho*u*u + p
     flux[.ymom] = rho*u*v
     flux[.zmom] = rho*u*w
-    flux[.energy] = u*(E + p)
+    flux[.energy] = rho*u*E + p*u
     return flux
 }
 

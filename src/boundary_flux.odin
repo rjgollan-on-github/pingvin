@@ -43,11 +43,11 @@ apply_downstream_flux :: proc (faces: #soa[]Interface) {
         u := f.right[.xvel]
         v := f.right[.yvel]
         w := f.right[.zvel]
-        f.flux[.mass] = rho*u
-        f.flux[.xmom] = rho*u*u + p
-        f.flux[.ymom] = rho*u*v
-        f.flux[.zmom] = rho*u*w
-        f.flux[.energy] = rho*E*u + p*u
+        f.flux[.mass] = -rho*u
+        f.flux[.xmom] = f.flux[.mass]*u - p
+        f.flux[.ymom] = f.flux[.mass]*v
+        f.flux[.zmom] = f.flux[.mass]*w
+        f.flux[.energy] = f.flux[.mass]*E - p*u
     }
 }
 

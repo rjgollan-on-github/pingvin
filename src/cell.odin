@@ -1,5 +1,7 @@
 package pingvin
 
+import "core:fmt"
+
 Cell_Id :: distinct int
 
 Cell :: struct {

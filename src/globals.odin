@@ -40,9 +40,10 @@ allocate_rtheta_grid :: proc (n_points: int) {
 delete_global_data :: proc() {
     delete(global_data.vertices)
     delete(global_data.quads)
-    delete(global_data.hexes)
     delete(global_data.cells)
     delete(global_data.xsects)
     delete(global_data.m_faces)
     delete(global_data.x_faces)
+    delete_grid_2d(&global_data.up_grid)
+    delete_grid_2d(&global_data.dn_grid)
 }

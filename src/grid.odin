@@ -96,7 +96,7 @@ find_marker :: proc (lines: []string, marker: string) -> (line_start, n_things: 
     for line, line_no in lines {
         if strings.has_prefix(line, marker) {
             line_start = line_no + 1
-            tokens := strings.fields(line)
+            tokens := strings.fields(line, context.temp_allocator)
             n_things = strconv.atoi(tokens[1])
             return line_start, n_things, true
         }
@@ -122,7 +122,7 @@ find_marker_tag :: proc (lines: []string, tag: string) -> (line_start, n_elems: 
     for line, line_no in lines {
         if strings.compare(line, match) == 0 {
             line_start = line_no + 2
-            tokens := strings.fields(lines[line_no+1])
+            tokens := strings.fields(lines[line_no+1], context.temp_allocator)
             n_elems = strconv.atoi(tokens[1])
             return line_start, n_elems, true
         }
@@ -137,9 +137,9 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
     }
     defer delete(data)
 
-    lines := strings.split_lines(string(data))
+    lines := strings.split_lines(string(data), context.temp_allocator)
     // 0. Examine dimensions on first line
-    tokens := strings.fields(lines[0])
+    tokens := strings.fields(lines[0], context.temp_allocator)
     dim := strconv.atoi(tokens[1])
     if dim != 2 {
         msg := fmt.tprintf("Error in SU2 file '%s'. NDIME= 2 expected.", filepath);
@@ -156,7 +156,7 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
     // Initialise vertices array and start to populate
     global_data.vertices = make([dynamic]Vector3, n_points)
     for line in lines[line_points_start:][:n_points] {
-        tokens = strings.fields(line)
+        tokens = strings.fields(line, context.temp_allocator)
         if len(tokens) != 3 {
             msg := fmt.tprintf("Error reading points in SU2 file '%s'. Three items expected on line.", filepath)
             return GridReadingError{msg=msg}
@@ -185,7 +185,7 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
     global_data.quads = make([dynamic]Quad, n_elem)
     grid.quads = make([dynamic]Quad, n_elem)
     for line in lines[line_elem_start:][:n_elem] {
-        tokens = strings.fields(line)
+        tokens = strings.fields(line, context.temp_allocator)
         if len(tokens) != 6 {
             msg := fmt.tprintf("Error reading quad in SU2 file '%s'. Six items expected on line.", filepath)
             return GridReadingError{msg=msg}
@@ -226,7 +226,7 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
     global_data.wall_boundary.faces = make([dynamic]Face2, n_wall_elems)
     grid.wall_boundary = &(global_data.wall_boundary)
     for line, i in lines[line_wall_elems:][:n_wall_elems] {
-        tokens = strings.fields(line)
+        tokens = strings.fields(line, context.temp_allocator)
         if len(tokens) != 3 {
             msg := fmt.tprintf("Error reading quad in SU2 file '%s'. Three items expected on line.", filepath)
             return GridReadingError{msg=msg}
@@ -249,7 +249,7 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
     global_data.symm_boundary.faces = make([dynamic]Face2, n_symm_elems)
     grid.symm_boundary = &(global_data.symm_boundary)
     for line, i in lines[line_symm_elems:][:n_symm_elems] {
-        tokens = strings.fields(line)
+        tokens = strings.fields(line, context.temp_allocator)
         if len(tokens) != 3 {
             msg := fmt.tprintf("Error reading quad in SU2 file '%s'. Three items expected on line.", filepath)
             return GridReadingError{msg=msg}

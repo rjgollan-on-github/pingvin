@@ -11,6 +11,7 @@ prep_solver :: proc () {
 
     // Read grid at first plane
     read_su2_2d_file(&global_data.up_grid, cfg.grid2d_file)
+    free_all(context.temp_allocator)
     allocate_grid_2d(&global_data.dn_grid, len(global_data.up_grid.vertices), len(global_data.up_grid.quads))
 
     // Prepare (global) r-theta grid

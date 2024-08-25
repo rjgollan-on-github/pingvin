@@ -42,6 +42,11 @@ VTKElement :: enum{line=3, quad=9, hex=12}
 // total number of values to represent a collection of elements.
 VtxCount := #sparse [VTKElement]int{.line=2, .quad=4, .hex=8}
 
+dot :: proc(a, b: Vector3) -> f64 {
+    ab := a*b
+    return math.sum(ab[:])
+}
+
 cross :: proc (a, b: Vector3) -> Vector3 {
     i := a.yzx * b.zxy
     j := a.zxy * b.yzx

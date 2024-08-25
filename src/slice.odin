@@ -3,6 +3,8 @@ package pingvin
 import "core:fmt"
 import "core:slice"
 import "core:os"
+import "core:log"
+import "base:runtime"
 
 Slice :: struct {
     n_cells    :      int,
@@ -19,7 +21,7 @@ Slice :: struct {
 
 Slice_Id :: distinct int
 
-assemble_initial_upstream_interfaces :: proc(up_g: ^Grid_2d) {
+assemble_initial_upstream_interfaces :: proc(up_g: Grid_2d) {
     n_faces := len(up_g.quads)
     // upstream faces (i_minus)
     global_data.m_faces = make(#soa[dynamic]Interface, n_faces)
@@ -52,7 +54,7 @@ find_face :: proc(needle: Face2, haystack: ^[dynamic]Face2) -> bool {
 // It's convenient to assemble cells and slice interfaces at the same
 // time because we have that information handy.
 assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, slice_no: Slice_Id) {
-    exists : bool
+    exists, is_interior : bool
     jm_id, jp_id, km_id, kp_id : Interface_Id
     n_cells := len(up_q)
     slice.n_cells = n_cells
@@ -70,6 +72,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     x_face_tags := make(map[string]Interface_Id)
     defer delete(x_face_tags)
     for i in 0..<n_cells {
+        is_interior = true
         qu := up_q[i]
         qd := dn_q[i]
         hex := hex_from_quads(qd, qu)
@@ -135,9 +138,10 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, jm_id)
                 case .wall:
                     append(&slice.wall_faces, jm_id)
-                    fmt.println("jm-wall-normal= ", normal)
+                    is_interior = false
                 case .symm:
                     append(&slice.symm_faces, jm_id)
+                    is_interior = false
                 }
             }
         }
@@ -181,9 +185,10 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, jp_id)
                 case .wall:
                     append(&slice.wall_faces, jp_id)
-                    fmt.println("jp-wall-normal= ", normal)
+                    is_interior = false
                 case .symm:
                     append(&slice.symm_faces, jp_id)
+                    is_interior = false
                 }
             }
         }
@@ -227,9 +232,10 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, km_id)
                 case .wall:
                     append(&slice.wall_faces, km_id)
-                    fmt.println("km-wall-normal= ", normal)
+                    is_interior = false
                 case .symm:
                     append(&slice.symm_faces, km_id)
+                    is_interior = false
                 }
             }
         }
@@ -273,9 +279,10 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
                     append(&slice.interior_faces, kp_id)
                 case .wall:
                     append(&slice.wall_faces, kp_id)
-                    fmt.println("kp-wall-normal= ", normal)
+                    is_interior = false
                 case .symm:
                     append(&slice.symm_faces, kp_id)
+                    is_interior = false
                 }
             }
         }
@@ -285,6 +292,10 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             global_data.cells[cell_id].outsigns[.k_plus] = complex(-1, 0)
         }
         global_data.cells[cell_id].faces[.k_plus] = kp_id
+        //
+        if is_interior == true {
+            fmt.printfln("interior cell [%d] @ %v", cell_id, ctr)
+        }
     }
     slice.last_x_face = Interface_Id(len(global_data.x_faces)-1)
     // With all cells and interfaces assembled, we can build out
@@ -376,9 +387,8 @@ create_slice :: proc (x: f64, xsect: ^Cross_Section, slice: Slice_Id) {
     up_g := &global_data.up_grid
     dn_g := &global_data.dn_grid
     compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
-    add_3d_slice_of_hexes(up_g, dn_g)
     if (slice == 0) {
-        assemble_initial_upstream_interfaces(up_g)
+        assemble_initial_upstream_interfaces(up_g^)
     }
     append(&global_data.slices, Slice{})
     assemble_slice_cells_and_interfaces(&global_data.slices[slice], up_g.quads[:], dn_g.quads[:], slice)
@@ -395,6 +405,8 @@ update_primitives :: proc (slice: ^Slice) {
         global_data.cells[i].pqs = prim_from_cq(global_data.cells[i].cqs)
     }
 }
+
+
 
 compute_interior_fluxes :: proc (slice: ^Slice) {
     for f_id in slice.interior_faces {
@@ -419,11 +431,15 @@ eval_slice_residual :: proc (slice: ^Slice) {
     low_order_recon_boundary(slice.symm_faces[:])
     low_order_recon_downstream(slice.dn_faces)
 
+    transform_interior_states_to_local_frame(slice.interior_faces[:])
+
     // 3. Compute fluxes
     compute_interior_fluxes(slice)
     apply_slip_wall_flux(slice.wall_faces[:])
     apply_symm_flux(slice.symm_faces[:])
     apply_downstream_flux(slice.dn_faces)
+
+    transform_interior_flux_to_global_frame(slice.interior_faces[:])
 
     // 4. Compute residual per cell
     compute_residuals(slice^)

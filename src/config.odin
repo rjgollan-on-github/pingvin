@@ -3,6 +3,7 @@ package pingvin
 import "core:strings"
 import "core:fmt"
 import "core:os"
+import "core:log"
 
 import lua "vendor:lua/5.4"
 
@@ -53,7 +54,7 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     }
     lua.pop(L, 1)
     if (cfg.dx <= 0.0) {
-        fmt.printf("Error in setting 'dx'. Value must be positive. Value is %v", cfg.dx)
+        fmt.printfln("Error in setting 'dx'. Value must be positive. Value is %v", cfg.dx)
     }
 
     lua.getglobal(L, "Mach_inflow")
@@ -61,7 +62,7 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
         cfg.Mach_inflow = f64(lua.tonumber(L, -1))
     }
     else {
-        fmt.printf("Error: 'Mach_inflow' must be set in job file.")
+        fmt.printfln("Error: 'Mach_inflow' must be set in job file.")
         os.exit(1)
     }
     lua.pop(L, 1)
@@ -71,7 +72,7 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
         cfg.p_inflow = f64(lua.tonumber(L, -1))
     }
     else {
-        fmt.printf("Error: 'p_inflow' must be set in job file.")
+        fmt.printfln("Error: 'p_inflow' must be set in job file.")
         os.exit(1)
     }
     lua.pop(L, 1)
@@ -81,7 +82,7 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
         cfg.T_inflow = f64(lua.tonumber(L, -1))
     }
     else {
-        fmt.printf("Error: 'T_inflow' must be set in job file.")
+        fmt.printfln("Error: 'T_inflow' must be set in job file.")
         os.exit(1)
     }
     lua.pop(L, 1)

@@ -16,6 +16,7 @@ Command :: struct {
 PvnCommands := map[string]Command{
     "march" = MarchCmd,
     "preview-grid" = PreviewGridCmd,
+    "test-slice" = TestSliceCmd,
 }
 
 main :: proc() {
