@@ -22,11 +22,6 @@ test_slice :: proc (args: []string) -> (result: bool) {
     allocate_grid_2d(&global_data.dn_grid, len(global_data.up_grid.vertices), len(global_data.up_grid.quads))
     fmt.println("test-slice: Allocated grids.")
 
-    for i in global_data.quads[0] {
-        fmt.printfln("i: %d p: %v", i, global_data.vertices[i])
-    }
-
-    
     // Make new vertices, but offset  x+dx
     n_verts := len(global_data.vertices)
     for i in 0..<n_verts {
@@ -52,8 +47,18 @@ test_slice :: proc (args: []string) -> (result: bool) {
     apply_inflow(&global_data.slices[0])
     fmt.println("test-slice: Applied inflow conditions to first slice.")
 
+
     eval_slice_residual(&global_data.slices[0])
     fmt.println("test-slice: Evaluated residual.")
+
+    for cell, i in global_data.cells {
+        for v, cq in cell.R {
+            if abs(real(v)) > 1.0e-11 {
+                fmt.printfln("cell-%d: %s", i, cq)
+                fmt.printfln("Non-zero residual: %v", v)
+            }
+        }
+    }
 
     delete_global_data()
     return true 

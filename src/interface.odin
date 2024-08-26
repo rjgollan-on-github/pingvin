@@ -4,7 +4,7 @@ import "core:fmt"
 
 Interface_Id :: distinct int
 
-InterfaceLabels :: enum {i_plus, i_minus, j_plus, j_minus, k_plus, k_minus}
+InterfaceLabels :: enum {i_minus, i_plus, j_minus, j_plus, k_minus, k_plus}
 
 InterfaceType :: enum {interior, wall, symm, off_wall}
 

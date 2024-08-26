@@ -61,9 +61,9 @@ apply_slip_wall_flux :: proc (faces : []Interface_Id) {
         face.flux[.energy] = complex(0.0, 0.0) 
         if face.left_cells[0] >= 0 {
             p := face.left[.p]
-            face.flux[.xmom] = -1.0*p*nx
-            face.flux[.ymom] = -1.0*p*ny
-            face.flux[.zmom] = -1.0*p*nz
+            face.flux[.xmom] = p*nx
+            face.flux[.ymom] = p*ny
+            face.flux[.zmom] = p*nz
         }
         else {
             p := face.right[.p]

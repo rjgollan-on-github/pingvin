@@ -12,4 +12,8 @@ tasks:
       - odin test src -define:ODIN_TEST_THREADS=1
     aliases: [t]
 
-
+  test-slice:
+    cmds:
+      - task: build
+      - ./pvn test-slice
+    aliases: [s]
