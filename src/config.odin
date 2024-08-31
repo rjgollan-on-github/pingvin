@@ -8,13 +8,20 @@ import "core:log"
 import lua "vendor:lua/5.4"
 
 Config :: struct {
-    grid2d_file :         string,
-    cross_section_dir :   string,
-    n_xsects :            int, 
-    dx :                  f64,
-    Mach_inflow :         f64,
-    p_inflow :            f64,
-    T_inflow :            f64,
+    grid2d_file :                string,
+    cross_section_dir :          string,
+    n_xsects :                   int,
+    dx :                         f64,
+    Mach_inflow :                f64,
+    p_inflow :                   f64,
+    T_inflow :                   f64,
+    // Solver settings
+    max_newton_steps:            int,
+    target_relative_residual:    f64,
+    target_update_norm:          f64,
+    max_gmres_iterations:        int,
+    perturbation_size:           f64,
+    gmres_relative_residual:     f64,
 }
 
 defaults :: `
@@ -22,6 +29,7 @@ grid2d_file = ""
 cross_section_dir = "xsect"
 no_cross_sections = 2
 dx = -1.0
+perturbation_size = 1.0e-250
 `
 
 read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
@@ -84,6 +92,12 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     else {
         fmt.printfln("Error: 'T_inflow' must be set in job file.")
         os.exit(1)
+    }
+    lua.pop(L, 1)
+
+    lua.getglobal(L, "perturbation_size")
+    if (!lua.isnil(L, -1)) {
+        cfg.perturbation_size = f64(lua.tonumber(L, -1))
     }
     lua.pop(L, 1)
 

@@ -60,7 +60,10 @@ test_slice :: proc (args: []string) -> (result: bool) {
         }
     }
 
+    is_converged := solve_slice(0)
+
     delete_global_data()
+    delete_GMRES_Workspace()
     return true 
 }
 

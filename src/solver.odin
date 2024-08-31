@@ -17,6 +17,10 @@ prep_solver :: proc () {
     // Prepare (global) r-theta grid
     allocate_rtheta_grid(len(global_data.up_grid.vertices))
     compute_rtheta_grid(&global_data.rtheta_grid, &global_data.up_grid, &global_data.xsects[0])
+
+    // Prepare GMRES workspace
+    nvars := len(global_data.up_grid.quads) * len(Conserved_Quantities)
+    allocate_GMRES_Workspace(nvars, cfg.max_gmres_iterations)
 }
 
 run_solver :: proc() {
@@ -42,12 +46,10 @@ run_solver :: proc() {
         create_cross_section(&curr_xsect, &curr_loft, x)
         create_slice(x, &curr_xsect, slice)
         // Solve slice
-        eval_slice_residual(&global_data.slices[slice])
-
-        if (slice == 0) {
-            for &cell, i  in global_data.cells {
-                fmt.printfln("cell-%d: R= %v", i, cell.R)
-            }
+        ok := solve_slice(slice)
+        if !ok {
+            fmt.println("pvn: unable to solve for slice at x= ", x-0.5*dx)
+            fmt.println("pvn: exiting")
             os.exit(1)
         }
         

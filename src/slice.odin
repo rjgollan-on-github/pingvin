@@ -433,6 +433,35 @@ eval_slice_residual :: proc (slice: ^Slice) {
     compute_residuals(slice^)
 }
 
+
+copy_slice_to_base_state :: proc (slice: ^Slice) {
+    for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
+        copy_residual_to_base_state(&cell);
+        copy_cqs_to_base_state(&cell);
+    }
+}
+
+eval_jacobian_vector_product :: proc (slice: ^Slice, v, Jv: []f64) {
+    sigma := globals.cfg.perturbation_size
+    n_cons := len(Conserved_Quantities)
+    // Place perturbed quantity in cqs
+    for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
+        for cq, icq in Conserved_Quantities {
+            cell.cqs[cq] = complex(cell.cqs0[cq], 0) + complex(0, sigma*v[i*n_cons + icq])
+        }
+    }
+    // Evaluate residual
+    eval_slice_residual(slice)
+    // Compute Jv using Frechet derivative (in complex space)
+    for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
+        for cq, icq in Conserved_Quantities {
+            Jv[i*n_cons + icq] = imag(cell.R[cq])/sigma;
+        }
+    }
+    return
+}
+
+
 prep_slice :: proc (slice, prev_slice: Slice) {
     curr_offset := slice.first_cell
     prev_offset := prev_slice.first_cell
