@@ -2,19 +2,22 @@ package pingvin
 
 import "core:math"
 import "core:fmt"
+import "core:os"
+
+ZERO_TOL :: 1.0e-12
 
 GMRES_Workspace :: struct {
-    nvars:           int,
+    nvars:             int,
     // Vectors with length of solution vector
-    r0, b, v, w, x:  []f64,
+    r0, rhs, v, w, x:  []f64,
     // VT is Krylov subspace stacked into flat array
-    VT:              []f64,
+    VT:                []f64,
     // Storage for GMRES support
-    h, hR:           []f64,
-    g0, g1:          []f64,
-    H0, H1:          [][]f64,
-    Q0, Q1:          [][]f64,
-    Omega:           [][]f64,
+    h, hR:             []f64,
+    g0, g1:            []f64,
+    H0, H1:            [][]f64,
+    Q0, Q1:            [][]f64,
+    Omega:             [][]f64,
 }
 
 gws := GMRES_Workspace{}
@@ -22,31 +25,31 @@ gws := GMRES_Workspace{}
 allocate_GMRES_Workspace :: proc (nvars, max_iterations : int) {
     gws.nvars = nvars
     gws.r0 = make([]f64, nvars)
-    gws.b = make([]f64, nvars)
+    gws.rhs = make([]f64, nvars)
     gws.v = make([]f64, nvars)
     gws.w = make([]f64, nvars)
     gws.x = make([]f64, nvars)
-    gws.VT = make([]f64, nvars*max_iterations)
-    gws.h = make([]f64, max_iterations)
-    gws.hR = make([]f64, max_iterations)
-    gws.g0 = make([]f64, max_iterations)
-    gws.g1 = make([]f64, max_iterations)
-    gws.H0 = make([][]f64, max_iterations)
-    for i in 0..<max_iterations do gws.H0[i] = make([]f64, max_iterations)
-    gws.H1 = make([][]f64, max_iterations)
-    for i in 0..<max_iterations do gws.H1[i] = make([]f64, max_iterations)
-    gws.Q0 = make([][]f64, max_iterations)
-    for i in 0..<max_iterations do gws.Q0[i] = make([]f64, max_iterations)
-    gws.Q1 = make([][]f64, max_iterations)
-    for i in 0..<max_iterations do gws.Q1[i] = make([]f64, max_iterations)
-    gws.Omega = make([][]f64, max_iterations)
-    for i in 0..<max_iterations do gws.Omega[i] = make([]f64, max_iterations)
+    gws.VT = make([]f64, nvars*(max_iterations+1))
+    gws.h = make([]f64, max_iterations+1)
+    gws.hR = make([]f64, max_iterations+1)
+    gws.g0 = make([]f64, max_iterations+1)
+    gws.g1 = make([]f64, max_iterations+1)
+    gws.H0 = make([][]f64, max_iterations+1)
+    for i in 0..<max_iterations+1 do gws.H0[i] = make([]f64, max_iterations)
+    gws.H1 = make([][]f64, max_iterations+1)
+    for i in 0..<max_iterations+1 do gws.H1[i] = make([]f64, max_iterations)
+    gws.Q0 = make([][]f64, max_iterations+1)
+    for i in 0..<max_iterations+1 do gws.Q0[i] = make([]f64, max_iterations+1)
+    gws.Q1 = make([][]f64, max_iterations+1)
+    for i in 0..<max_iterations+1 do gws.Q1[i] = make([]f64, max_iterations+1)
+    gws.Omega = make([][]f64, max_iterations+1)
+    for i in 0..<max_iterations+1 do gws.Omega[i] = make([]f64, max_iterations+1)
     return
 }
 
 delete_GMRES_Workspace :: proc() {
     delete(gws.r0)
-    delete(gws.b)
+    delete(gws.rhs)
     delete(gws.v)
     delete(gws.w)
     delete(gws.x)
@@ -110,14 +113,22 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
     eval_slice_residual(slice)
     R0_norm := slice_residual_norm(slice)
     copy_slice_to_base_state(slice)
+    copy_initial_slice_residual_to_gws(slice)
+
+    fmt.printfln("R0_norm= %v", R0_norm)
 
     // 1. Iterations: continue until a desired convergence, or max Newton steps
     max_steps := cfg.max_newton_steps
-    for step in 0..<max_steps {
+//    for step in 0..<max_steps {
+    for step in 0..<1 {
         // Solve
         is_gmres_converged := gmres_solve(slice)
-        
-        
+        fmt.println("After gmres solve, dUs= ")
+        for cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
+            for cq in Conserved_Quantities {
+                fmt.printfln("%d: dU[%s]= %v", i, cq, cell.dU[cq])
+            }
+        }
         // Update
         update_slice(slice)
         eval_slice_residual(slice)
@@ -127,12 +138,12 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
         rel_residual := R_norm/R0_norm
         dU_norm := slice_dU_norm(slice)
         fmt.printfln("  [slice-%03d]: step= %d, rel. residual= %.6e  ||dU||= %.6e", slice_no, step, rel_residual, dU_norm)
-        if rel_residual < cfg.target_relative_residual {
+        if rel_residual < cfg.slice_relative_residual {
             is_converged = true
             fmt.println("    !!! Slice converged: relative residual target achieved. !!!")
             return is_converged
         }
-        if dU_norm < cfg.target_update_norm {
+        if dU_norm < cfg.slice_change_in_update {
             is_converged = true
             fmt.println("    !!! Slice converged: target for change over step (||dU||) achieved. !!!")
             return is_converged
@@ -141,9 +152,30 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
     return is_converged    
 }
 
+copy_initial_slice_residual_to_gws :: proc (slice: ^Slice) {
+    n_cons := len(Conserved_Quantities)
+    for cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
+        for cq, icq in Conserved_Quantities {
+            gws.rhs[i*n_cons + icq] = cell.Ru[cq]
+        }
+    }
+    return
+}
+
 compute_r0 :: proc () {
-    // Presently, we assume x0[] = 0.0, so r0 = b
-    copy(gws.r0, gws.b)
+    // Presently, we assume x0[] = 0.0, so r0 = rhs
+    copy(gws.r0, gws.rhs)
+}
+
+copy_matrix :: proc (tgt, src: [][]f64) {
+    for i in 0..<len(tgt) {
+        for j in 0..<len(tgt[i]) do tgt[i][j] = src[i][j]
+    }
+}
+
+copy_array :: proc (tgt, src: []f64) {
+    for i in 0..<len(tgt) do tgt[i] = src[i]
+    return
 }
 
 l2norm :: proc (vec: []f64) -> f64 {
@@ -193,7 +225,7 @@ dot :: proc {
 }
 
 upper_solve :: proc (A: [][]f64, n: int, b : []f64) {
-    b[n-1] = A[n-1][n-1]
+    b[n-1] /= A[n-1][n-1]
     for i := n-2; i >= 0; i -= 1 {
         sum := b[i]
         for j in i+1..<n do sum -= A[i][j] * b[j]
@@ -246,7 +278,8 @@ gmres_solve :: proc (slice: ^Slice) -> (is_converged : bool) {
     is_converged = ok
 
     upper_solve(gws.H1, m, gws.g1)
-    transpose_and_dot(gws.VT, gws.nvars, m, gws.nvars, gws.g1, gws.x)
+
+    transpose_and_dot(gws.VT, gws.nvars, m-1, gws.nvars-1, gws.g1, gws.x)
     for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
         for cq, icq in Conserved_Quantities {
             cell.dU[cq] = gws.x[i*n_cons + icq]
@@ -255,6 +288,15 @@ gmres_solve :: proc (slice: ^Slice) -> (is_converged : bool) {
     return is_converged
 }
 
+multiply :: proc (A: [][]f64, x, b : []f64) {
+    for i in 0..<len(A) {
+        b[i] = 0.0
+        for j in 0..<len(A[i]) {
+            b[i] += A[i][j]*x[j]
+        }
+    }
+    return
+}
 
 perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_converged : bool) {
     cfg := globals.cfg
@@ -278,10 +320,15 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
     }
     target_residual := cfg.gmres_relative_residual * beta
 
+    fmt.printfln("gmres: beta= %.16e, r0[0]= %.16e", beta, gws.r0[0])
+    fmt.printfln("gmres: target_residual= %.16e", target_residual)
+
     // 2. begin loop
     for j in 0..<cfg.max_gmres_iterations {
+//    for j in 0..<1 {
         // 3. Compute w := Jv
         eval_jacobian_vector_product(slice, gws.v, gws.w)
+        //multiply(A, gws.v, gws.w)
 
         // 4. Begin orthonormalisation
         for i in 0..=j {
@@ -292,12 +339,15 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
             // Now ready for dot product
             h_ij := dot(gws.w, gws.v)
             gws.H0[i][j] = h_ij
+            fmt.printfln("gmres:   h[%d,%d]= %v", i, j, h_ij)
             // 6. w_j := w_j - h_ij*v_i
             for ii in 0..<nvars do gws.w[ii] -= h_ij*gws.v[ii]
+
         } // 7. end 4.
         // 8. 
         h_jp1j := l2norm(gws.w)
         gws.H0[j+1][j] = h_jp1j
+        fmt.printfln("gmres: h0[%d,%d]= %v", j+1, j, h_jp1j)
         // 9.
         offset := (j+1)*nvars
         for ii in 0..<nvars {
@@ -328,22 +378,24 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
         // Apply rotations
         dot_matrix_upper(gws.Omega, j+1, j+1, gws.H0, j, gws.H1)
         dot_matrix_vector(gws.Omega, j+1, j+1, gws.g0, gws.g1)
+
         // Accumulate rotations in Q
         if j == 0 {
-            copy(gws.Q1, gws.Omega)
+            copy_matrix(gws.Q1, gws.Omega)
         }
         else {
             dot_matrix_upper(gws.Omega, j+1, j+1, gws.Q0, j+1, gws.Q1)
         }
         // Prepare for next step
-        copy(gws.H0, gws.H1)
-        copy(gws.Q0, gws.Q1)
-        copy(gws.g0, gws.g1)
+        copy_matrix(gws.H0, gws.H1)
+        copy_matrix(gws.Q0, gws.Q1)
+        copy_array(gws.g0, gws.g1)
         
         // Get residual
         residual := abs(gws.g1[j+1])
         if residual <= target_residual {
             is_converged = true
+            fmt.printfln("gmres: resid= %.16e, m= %d", residual, j+1)
             return j+1, is_converged
         }
     }

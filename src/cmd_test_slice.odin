@@ -22,6 +22,10 @@ test_slice :: proc (args: []string) -> (result: bool) {
     allocate_grid_2d(&global_data.dn_grid, len(global_data.up_grid.vertices), len(global_data.up_grid.quads))
     fmt.println("test-slice: Allocated grids.")
 
+    nvars := len(global_data.up_grid.quads) * len(Conserved_Quantities)
+    allocate_GMRES_Workspace(nvars, globals.cfg.max_gmres_iterations)
+    fmt.println("test-slice: Allocated GMRES workspace")
+
     // Make new vertices, but offset  x+dx
     n_verts := len(global_data.vertices)
     for i in 0..<n_verts {
