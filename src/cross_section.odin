@@ -56,7 +56,7 @@ read_cross_section :: proc (xsect: ^Cross_Section, filename: string, isect: int)
 read_all_cross_sections :: proc (dir: string, n_xsects: int) -> (err: CrossSectionError) {
     global_data.xsects = make([dynamic]Cross_Section, n_xsects)
     for i in 0..<n_xsects {
-        filename := fmt.tprintf("%s/%s-%03d", dir, dir, i)
+        filename := fmt.tprintf("%s/xsect-%03d", dir, i)
         read_cross_section(&global_data.xsects[i], filename, i)
     }
     return nil
@@ -84,7 +84,7 @@ update_loft :: proc(loft: ^Cross_Section_Loft, x: f64) {
     idx_loft_end : int
     if x > loft.end {
         // Search for new loft end in cross sections
-        for i in 1..<len(global_data.xsects) {
+        for i in 1..<len(global_data.xsects)-1 {
             if x > global_data.xsects[i].vertices[0].x {
                 idx_loft_end = i + 1
             }

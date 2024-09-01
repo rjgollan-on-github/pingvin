@@ -4,17 +4,20 @@ import "core:flags"
 import "core:os"
 import "core:fmt"
 
+@(private="file")
 test_grid :: "test-assets/single-slice/qcirc.su2"
+@(private="file")
 test_job_file :: "test-assets/single-slice/job.lua"
+@(private="file")
 dx :: 0.2
 
 TestSliceCmd := Command {
     main = test_slice,
-    description = `[DEV] Test residual evaluation on a slice`,
+    description = `[DEV] Test Newton solver on a single slice`,
     short_desc = "''", // ditto
 }
 
-test_slice :: proc (args: []string) -> (result: bool) {
+test_slice :: proc (args : []string) -> (result : bool) {
     fmt.println("test-slice: Begin...")
     globals.cfg = read_config_from_lua_file(test_job_file)
     read_su2_2d_file(&global_data.up_grid, test_grid)
@@ -55,6 +58,7 @@ test_slice :: proc (args: []string) -> (result: bool) {
     eval_slice_residual(&global_data.slices[0])
     fmt.println("test-slice: Evaluated residual.")
 
+    /*
     for cell, i in global_data.cells {
         for v, cq in cell.R {
             if abs(real(v)) > 1.0e-11 {
@@ -63,11 +67,15 @@ test_slice :: proc (args: []string) -> (result: bool) {
             }
         }
     }
-
+    */
     is_converged := solve_slice(0)
+    fmt.printfln("test-slice: solver converged? %v", is_converged)
 
+    fmt.println("test-slice: Attempting to delete global data")
     delete_global_data()
+    fmt.println("test-slice: Attempting to delete GMRES workspace")
     delete_GMRES_Workspace()
+    fmt.println("test-slice: memory deleted")
     return true 
 }
 

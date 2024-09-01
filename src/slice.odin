@@ -75,6 +75,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         qu := up_q[i]
         qd := dn_q[i]
         hex := hex_from_quads(qd, qu)
+        append(&global_data.hexes, hex)
         vol := hex_volume(hex)
         ctr := hex_centroid(hex)
         cell_id := Cell_Id(len(global_data.cells))

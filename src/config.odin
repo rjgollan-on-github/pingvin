@@ -10,6 +10,7 @@ import lua "vendor:lua/5.4"
 Config :: struct {
     grid2d_file :                string,
     cross_section_dir :          string,
+    output_vtk_file :            string,
     n_xsects :                   int,
     dx :                         f64,
     Mach_inflow :                f64,
@@ -27,6 +28,7 @@ Config :: struct {
 defaults :: `
 grid2d_file = ""
 cross_section_dir = "xsect"
+output_vtk_file = "pingvin-flow-field.vtk"
 dx = -1.0
 max_newton_steps = 10
 slice_relative_residual = 1.0e-6
@@ -110,6 +112,9 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
 
     str_result, found = lua_get_optional_string(L, "cross_section_dir")
     if found do cfg.cross_section_dir = str_result
+
+    str_result, found = lua_get_optional_string(L, "output_vtk_file")
+    if found do cfg.output_vtk_file = str_result
 
     err_msg := "PVN-ERROR: 'no_cross_sections' not set in job input file. An integer is expected."
     cfg.n_xsects = lua_get_integer(L, "no_cross_sections", err_msg)

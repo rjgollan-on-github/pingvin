@@ -2,6 +2,7 @@ package pingvin
 
 import "core:fmt"
 import "core:os"
+import "core:math/rand"
 
 prep_solver :: proc () {
     cfg := globals.cfg
@@ -45,6 +46,15 @@ run_solver :: proc() {
         update_loft(&curr_loft, x)
         create_cross_section(&curr_xsect, &curr_loft, x)
         create_slice(x, &curr_xsect, slice)
+
+        if slice == 0 {
+            rand.reset(1)
+            for &cell in global_data.cells[global_data.slices[0].first_cell:global_data.slices[0].last_cell+1] {
+                cell.cqs[.ymom] = complex(1.0*rand.float64_range(-1, 1), 0.0)
+                cell.cqs[.zmom] = complex(2.0*rand.float64_range(-1, 1), 0.0)
+            }
+        }
+        
         // Solve slice
         ok := solve_slice(slice)
         if !ok {
@@ -59,7 +69,7 @@ run_solver :: proc() {
     }
 }
 
-post_solver :: proc() {
-    write_flow_field_as_vtk("test-output.vtk")
+post_solver :: proc () {
+    write_flow_field_as_vtk(globals.cfg.output_vtk_file)
 }
 

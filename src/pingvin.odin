@@ -17,6 +17,7 @@ PvnCommands := map[string]Command{
     "march" = MarchCmd,
     "preview-grid" = PreviewGridCmd,
     "test-slice" = TestSliceCmd,
+    "test-duct" = TestDuctCmd,
 }
 
 main :: proc() {

@@ -65,7 +65,7 @@ delete_GMRES_Workspace :: proc() {
     for i in 0..<len(gws.Q0) do delete(gws.Q0[i])
     delete(gws.Q0)
     for i in 0..<len(gws.Q1) do delete(gws.Q1[i])
-    delete(gws.H0)
+    delete(gws.Q1)
     for i in 0..<len(gws.Omega) do delete(gws.Omega[i])
     delete(gws.Omega)
     return
@@ -97,8 +97,8 @@ slice_dU_norm :: proc(slice: ^Slice) -> f64 {
 
 update_slice :: proc(slice: ^Slice) {
     for i in slice.first_cell..=slice.last_cell {
-        cell := global_data.cells[i]
-        cell.cqs0 += cell.dU
+        cell := &global_data.cells[i]
+        cell.cqs0 -= cell.dU
         for cq in Conserved_Quantities {
             cell.cqs[cq] = complex(cell.cqs0[cq], 0.0)
         }
@@ -112,28 +112,31 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
     // 0. Determine residual norm at start
     eval_slice_residual(slice)
     R0_norm := slice_residual_norm(slice)
+    fmt.printfln("R0_norm= %.16e", R0_norm)
     copy_slice_to_base_state(slice)
-    copy_initial_slice_residual_to_gws(slice)
-
-    fmt.printfln("R0_norm= %v", R0_norm)
+    copy_slice_residual_to_gws(slice)
 
     // 1. Iterations: continue until a desired convergence, or max Newton steps
     max_steps := cfg.max_newton_steps
-//    for step in 0..<max_steps {
-    for step in 0..<1 {
+    for step in 0..<max_steps {
         // Solve
         is_gmres_converged := gmres_solve(slice)
-        fmt.println("After gmres solve, dUs= ")
+        fmt.printfln("        gmres converged? %v", is_gmres_converged)
+        //fmt.println("After gmres solve, dUs= ")
+        /*
         for cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
             for cq in Conserved_Quantities {
                 fmt.printfln("%d: dU[%s]= %v", i, cq, cell.dU[cq])
             }
         }
+        */
         // Update
         update_slice(slice)
         eval_slice_residual(slice)
         R_norm := slice_residual_norm(slice)
+        fmt.printfln("R_norm= %.16e", R_norm)
         copy_slice_to_base_state(slice)
+        copy_slice_residual_to_gws(slice)
         // Check on convergence
         rel_residual := R_norm/R0_norm
         dU_norm := slice_dU_norm(slice)
@@ -152,11 +155,11 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
     return is_converged    
 }
 
-copy_initial_slice_residual_to_gws :: proc (slice: ^Slice) {
+copy_slice_residual_to_gws :: proc (slice: ^Slice) {
     n_cons := len(Conserved_Quantities)
     for cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
         for cq, icq in Conserved_Quantities {
-            gws.rhs[i*n_cons + icq] = cell.Ru[cq]
+            gws.rhs[i*n_cons + icq] = -cell.Ru[cq]
         }
     }
     return
@@ -320,8 +323,8 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
     }
     target_residual := cfg.gmres_relative_residual * beta
 
-    fmt.printfln("gmres: beta= %.16e, r0[0]= %.16e", beta, gws.r0[0])
-    fmt.printfln("gmres: target_residual= %.16e", target_residual)
+    //fmt.printfln("gmres: beta= %.16e, r0[0]= %.16e", beta, gws.r0[0])
+    //fmt.printfln("gmres: target_residual= %.16e", target_residual)
 
     // 2. begin loop
     for j in 0..<cfg.max_gmres_iterations {
@@ -339,7 +342,6 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
             // Now ready for dot product
             h_ij := dot(gws.w, gws.v)
             gws.H0[i][j] = h_ij
-            fmt.printfln("gmres:   h[%d,%d]= %v", i, j, h_ij)
             // 6. w_j := w_j - h_ij*v_i
             for ii in 0..<nvars do gws.w[ii] -= h_ij*gws.v[ii]
 
@@ -347,7 +349,7 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
         // 8. 
         h_jp1j := l2norm(gws.w)
         gws.H0[j+1][j] = h_jp1j
-        fmt.printfln("gmres: h0[%d,%d]= %v", j+1, j, h_jp1j)
+//        fmt.printfln("gmres: h0[%d,%d]= %v", j+1, j, h_jp1j)
         // 9.
         offset := (j+1)*nvars
         for ii in 0..<nvars {
@@ -395,7 +397,6 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
         residual := abs(gws.g1[j+1])
         if residual <= target_residual {
             is_converged = true
-            fmt.printfln("gmres: resid= %.16e, m= %d", residual, j+1)
             return j+1, is_converged
         }
     }

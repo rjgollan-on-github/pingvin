@@ -17,3 +17,9 @@ tasks:
       - task: build
       - ./pvn test-slice
     aliases: [s]
+
+  test-duct:
+    cmds:
+      - task: build
+      - ./pvn test-duct
+    aliases: [d]
