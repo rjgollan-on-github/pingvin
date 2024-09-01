@@ -4,8 +4,8 @@ import "core:flags"
 import "core:os"
 import "core:fmt"
 
-test_grid :: "test-assets/qcirc.su2"
-test_job_file :: "test-assets/job.lua"
+test_grid :: "test-assets/single-slice/qcirc.su2"
+test_job_file :: "test-assets/single-slice/job.lua"
 dx :: 0.2
 
 TestSliceCmd := Command {
