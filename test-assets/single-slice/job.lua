@@ -7,7 +7,8 @@ Mach_inflow = 5.76788
 p_inflow = 1000.0
 T_inflow = 250.0
 -- solver settings
-max_newton_steps = 10
-max_gmres_iterations = 30
+max_newton_steps = 1
+max_gmres_iterations = 1
+gmres_relative_residual = 1.0e-4
 
 

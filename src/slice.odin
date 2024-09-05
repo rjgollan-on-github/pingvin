@@ -27,10 +27,11 @@ assemble_initial_upstream_interfaces :: proc(up_g: Grid_2d) {
     global_data.m_faces = make(#soa[dynamic]Interface, n_faces)
     for i in 0..<n_faces {
         area, normal, t1, t2 := quad_properties(global_data.quads[i])
-        global_data.m_faces[i].area = complex(area, 0.0)
+        global_data.m_faces[i].area = area
         global_data.m_faces[i].normal = normal
         global_data.m_faces[i].t1 = t1
         global_data.m_faces[i].t2 = t2
+        global_data.m_faces[i].quad = global_data.quads[i]
     }
 }
 
@@ -98,7 +99,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         // i_plus face (should NOT exist)
         ip_id := Interface_Id((int(slice_no)+1)*n_cells + i)
         area, normal, t1, t2 := quad_properties(qd)
-        ip_face := Interface{area=complex(area, 0.0), normal=normal, t1=t1, t2=t2}
+        ip_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=qd}
         ip_face.right_cells = {cell_id, im_face.right_cells[0]}
         ip_face.left_cells = {-1, -1}
         global_data.cells[cell_id].faces[.i_plus] = ip_id
@@ -112,7 +113,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(jm_quad)
-            jm_face := Interface{area=complex(area, 0), normal=normal, t1=t1, t2=t2}
+            jm_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=jm_quad}
             jm_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jm_tag] = jm_id
             // Set left cell while we know it, and
@@ -157,7 +158,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(jp_quad)
-            jp_face := Interface{area=complex(area, 0), normal=normal, t1=t1, t2=t2}
+            jp_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=jp_quad}
             jp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jp_tag] = jp_id
             // Set left cell while we know it, and
@@ -202,7 +203,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(km_quad)
-            km_face := Interface{area=complex(area, 0), normal=normal}
+            km_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=km_quad}
             km_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[km_tag] = km_id
             // Set left cell while we know it, and
@@ -247,7 +248,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         if !exists {
             // face does not yet exist
             area, normal, t1, t2 := quad_properties(kp_quad)
-            kp_face := Interface{area=complex(area, 0), normal=normal, t1=t1, t2=t2}
+            kp_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=kp_quad}
             kp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[kp_tag] = kp_id
             // Set left cell while we know it, and
@@ -369,7 +370,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     }
     // Set slices to upstream and downstream interfaces
     slice.up_faces = global_data.m_faces[slice.first_cell:slice.last_cell+1]
-    slice.dn_faces = global_data.m_faces[slice.last_cell:slice.last_cell+Cell_Id(n_cells)+1]
+    slice.dn_faces = global_data.m_faces[slice.last_cell+1:slice.last_cell+Cell_Id(n_cells)+1]
 }
 
 create_slice :: proc (x: f64, xsect: ^Cross_Section, slice: Slice_Id) {
@@ -433,35 +434,6 @@ eval_slice_residual :: proc (slice: ^Slice) {
     // 4. Compute residual per cell
     compute_residuals(slice^)
 }
-
-
-copy_slice_to_base_state :: proc (slice: ^Slice) {
-    for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
-        copy_residual_to_base_state(&cell);
-        copy_cqs_to_base_state(&cell);
-    }
-}
-
-eval_jacobian_vector_product :: proc (slice: ^Slice, v, Jv: []f64) {
-    sigma := globals.cfg.perturbation_size
-    n_cons := len(Conserved_Quantities)
-    // Place perturbed quantity in cqs
-    for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
-        for cq, icq in Conserved_Quantities {
-            cell.cqs[cq] = complex(cell.cqs0[cq], 0) + complex(0, sigma*v[i*n_cons + icq])
-        }
-    }
-    // Evaluate residual
-    eval_slice_residual(slice)
-    // Compute Jv using Frechet derivative (in complex space)
-    for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
-        for cq, icq in Conserved_Quantities {
-            Jv[i*n_cons + icq] = imag(cell.R[cq])/sigma;
-        }
-    }
-    return
-}
-
 
 prep_slice :: proc (slice, prev_slice: Slice) {
     curr_offset := slice.first_cell

@@ -7,8 +7,8 @@ import "core:math/rand"
 prep_solver :: proc () {
     cfg := globals.cfg
     read_all_cross_sections(cfg.cross_section_dir, cfg.n_xsects)
-    globals.start = global_data.xsects[0].vertices[0].x
-    globals.end = global_data.xsects[len(global_data.xsects)-1].vertices[0].x
+    globals.start = real(global_data.xsects[0].vertices[0].x)
+    globals.end = real(global_data.xsects[len(global_data.xsects)-1].vertices[0].x)
 
     // Read grid at first plane
     read_su2_2d_file(&global_data.up_grid, cfg.grid2d_file)

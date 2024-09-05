@@ -3,6 +3,16 @@ package pingvin
 import cmplx "core:math/cmplx"
 import "core:fmt"
 
+abs_c128 :: proc(z : complex128) -> complex128 {
+    if real(z) >= 0.0 {
+        return z
+    }
+    else {
+        return complex(-real(z), -imag(z))
+    }
+}
+
+
 max_c128 :: proc(z1, z2: complex128) -> complex128 {
     if real(z1) >= real(z2) {
         return z1
@@ -24,8 +34,9 @@ flux_vector :: proc(P: [Primitive_Quantities]complex128) -> (flux: [Conserved_Qu
     u := P[.xvel]
     v := P[.yvel]
     w := P[.zvel]
+    ke := 0.5*(P[.xvel]*P[.xvel] + P[.yvel]*P[.yvel] + P[.zvel]*P[.zvel])
     p := P[.p]
-    E := P[.e] + P[.ke]
+    E := P[.e] + ke
     flux[.mass] = rho*u
     flux[.xmom] = rho*u*u + p
     flux[.ymom] = rho*u*v
@@ -45,13 +56,12 @@ flux_calc :: proc (L, R: [Primitive_Quantities]complex128) -> (flux: [Conserved_
     u_L := L[.xvel]
     u_R := R[.xvel]
     gamma := globals.gamma
-    R_gas := globals.R_gas
-    a_L := cmplx.sqrt(gamma*R_gas*L[.p]/L[.rho]) 
-    a_R := cmplx.sqrt(gamma*R_gas*R[.p]/R[.rho])
-    S_plus := max_complex(abs(u_L - a_L), abs(u_R - a_R), abs(u_L + a_L), abs(u_R + a_R))
+    a_L := cmplx.sqrt(gamma*L[.p]/L[.rho]) 
+    a_R := cmplx.sqrt(gamma*R[.p]/R[.rho])
+    S_plus := max_complex(abs_c128(u_L - a_L), abs_c128(u_R - a_R), abs_c128(u_L + a_L), abs_c128(u_R + a_R))
 
     for &f, i in flux {
-        f = 0.5*(F_L[i] + F_R[i]) - 0.5*S_plus*(U_L[i] - U_R[i])
+        f = 0.5*(F_L[i] + F_R[i]) //- 0.5*S_plus*(U_R[i] - U_L[i])
     }
     return flux    
 }

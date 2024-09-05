@@ -13,7 +13,7 @@ write_flow_field_as_vtk :: proc (filename: string) {
     fmt.fprintln(f, "DATASET UNSTRUCTURED_GRID")
     fmt.fprintfln(f, "POINTS %d double", len(global_data.vertices))
     for v in global_data.vertices {
-        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(v.x), uoflowz(v.y), uoflowz(v.z))
+        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(real(v.x)), uoflowz(real(v.y)), uoflowz(real(v.z)))
     }
     n_cells := len(global_data.hexes)
     fmt.fprintln(f, "")
@@ -38,3 +38,4 @@ write_flow_field_as_vtk :: proc (filename: string) {
 
     
 }
+

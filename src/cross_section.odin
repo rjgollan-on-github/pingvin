@@ -85,7 +85,7 @@ update_loft :: proc(loft: ^Cross_Section_Loft, x: f64) {
     if x > loft.end {
         // Search for new loft end in cross sections
         for i in 1..<len(global_data.xsects)-1 {
-            if x > global_data.xsects[i].vertices[0].x {
+            if x > real(global_data.xsects[i].vertices[0].x) {
                 idx_loft_end = i + 1
             }
         }
@@ -103,7 +103,7 @@ create_cross_section_loft :: proc (loft: ^Cross_Section_Loft, up, dn: ^Cross_Sec
         b2 := b3 - (1./3)*dx*dn.slopes[i]
         loft.beziers[i] = CubicBezier{b0, b1, b2, b3}
     }
-    loft.end = dn.vertices[0].x
+    loft.end = real(dn.vertices[0].x)
 }
 
 

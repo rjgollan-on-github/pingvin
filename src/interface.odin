@@ -18,6 +18,7 @@ Interface :: struct {
     right :       [Primitive_Quantities]complex128,
     left_cells :  [2]Cell_Id,
     right_cells : [2]Cell_Id,
+    quad :        Quad,
 }
 
 transform_interior_states_to_local_frame :: proc (face_ids: []Interface_Id) {
@@ -25,6 +26,14 @@ transform_interior_states_to_local_frame :: proc (face_ids: []Interface_Id) {
         f := &global_data.x_faces[f_id]
         transform_pq_vel_to_local_frame(&f.left, f.normal, f.t1, f.t2)
         transform_pq_vel_to_local_frame(&f.right, f.normal, f.t1, f.t2)
+
+        if f_id == 0 {
+            sigma := 1.0e-250
+            fmt.printfln("--- f_id= %d, ---", f_id)
+            fmt.printfln("L: u= %.8e u-d= %.8e", real(f.left[.xvel]), imag(f.left[.xvel])/sigma)
+            fmt.printfln("L: v= %.8e v-d= %.8e", real(f.left[.yvel]), imag(f.left[.yvel])/sigma)
+            fmt.printfln("L: w= %.8e w-d= %.8e", real(f.left[.zvel]), imag(f.left[.zvel])/sigma)
+        }
     }
 }
 

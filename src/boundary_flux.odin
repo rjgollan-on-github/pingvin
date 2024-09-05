@@ -18,7 +18,7 @@ apply_inflow :: proc (slice: ^Slice) {
     ke := 0.5*u*u
     E := e + ke
     flux : [Conserved_Quantities]complex128
-    flux[.mass] = -1.0*rho*u
+    flux[.mass] = -rho*u
     flux[.xmom] = flux[.mass]*u - p
     flux[.energy] = flux[.mass]*E - p*u
     for &f in slice.up_faces {
@@ -29,7 +29,6 @@ apply_inflow :: proc (slice: ^Slice) {
         cell.pqs[.p] = p
         cell.pqs[.T] = T
         cell.pqs[.e] = e
-        cell.pqs[.ke] = ke
         cell.pqs[.xvel] = u
         cell.cqs = cq_from_prim(cell.pqs)
     }
@@ -39,10 +38,11 @@ apply_downstream_flux :: proc (faces: #soa[]Interface) {
     for &f in faces {
         rho := f.right[.rho]
         p := f.right[.p]
-        E := f.right[.e] + f.right[.ke]
         u := f.right[.xvel]
         v := f.right[.yvel]
         w := f.right[.zvel]
+        ke := 0.5*(u*u + v*v + w*w)
+        E := f.right[.e] + ke
         f.flux[.mass] = -rho*u
         f.flux[.xmom] = f.flux[.mass]*u - p
         f.flux[.ymom] = f.flux[.mass]*v
@@ -54,9 +54,9 @@ apply_downstream_flux :: proc (faces: #soa[]Interface) {
 apply_slip_wall_flux :: proc (faces : []Interface_Id) {
     for f_id in faces {
         face := &global_data.x_faces[f_id]
-        nx := complex(face.normal.x, 0.0)
-        ny := complex(face.normal.y, 0.0)
-        nz := complex(face.normal.z, 0.0)
+        nx := face.normal.x
+        ny := face.normal.y
+        nz := face.normal.z
         face.flux[.mass] = complex(0.0, 0.0)
         face.flux[.energy] = complex(0.0, 0.0) 
         if face.left_cells[0] >= 0 {

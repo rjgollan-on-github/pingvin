@@ -164,7 +164,7 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
         z := strconv.atof(tokens[0])
         y := strconv.atof(tokens[1])
         i := strconv.atoi(tokens[2])
-        global_data.vertices[i] = {0.0, y, z}
+        global_data.vertices[i] = {complex(0.0, 0.0), complex(y, 0.0), complex(z, 0.0)}
         append(&(grid.vertices), VtxId(i))
     }
 
@@ -287,7 +287,7 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
     fmt.fprintfln(f, "POINTS %d double", len(g.vertices))
     for v_id in g.vertices {
         v := global_data.vertices[v_id]
-        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(v.x), uoflowz(v.y), uoflowz(v.z))
+        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(real(v.x)), uoflowz(real(v.y)), uoflowz(real(v.z)))
     }
     n_cells := len(global_data.quads)
     fmt.fprintln(f, "")
@@ -303,11 +303,11 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
 }
 
 magnitude_yz :: proc (v: Vector3) -> f64 {
-    return math.sqrt(v.z*v.z + v.y*v.y)
+    return math.sqrt(real(v.z)*real(v.z) + real(v.y)*real(v.y))
 }
 
 argument_yz :: proc (v: Vector3) -> f64 {
-    return math.atan2(v.y, v.z)
+    return math.atan2(real(v.y), real(v.z))
 }
 
 find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB: Vector3, result: bool) {
@@ -315,8 +315,8 @@ find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB
     for i in 0..<len(xsect.vertices)-1 {
         p0 := xsect.vertices[i]
         p1 := xsect.vertices[i+1]
-        theta0 := math.atan2(p0.y, p0.z)
-        theta1 := math.atan2(p1.y, p1.z)
+        theta0 := math.atan2(real(p0.y), real(p0.z))
+        theta1 := math.atan2(real(p1.y), real(p1.z))
         //log.debugf("p0= %v p1= %v theta0= %v theta1= %v", p0, p1, theta0, theta1)
         if (theta0 <= theta) && (theta <= theta1) {
             pA = p0
@@ -348,7 +348,7 @@ compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Secti
 }
 
 compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_Section) {
-    x := xsect.vertices[0].x
+    x := real(xsect.vertices[0].x)
     for i in 0..<len(rtg.r_bar) {
         theta := rtg.theta[i]
         //log.debugf("looking for theta= %v", theta)
@@ -357,14 +357,14 @@ compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_S
             fmt.printfln("Error in compute_grid_2d: theta= %v", theta)
             os.exit(1)
         }
-        theta0 := math.atan2(pA.y, pA.z)
-        theta1 := math.atan2(pB.y, pB.z)
+        theta0 := math.atan2(real(pA.y), real(pA.z))
+        theta1 := math.atan2(real(pB.y), real(pB.z))
         w := (theta - theta0)/(theta1 - theta0)
         r_b := (1 - w)*magnitude_yz(pA) + w*magnitude_yz(pB)
         r := rtg.r_bar[i]*r_b
         z := r*math.cos(theta)
         y := r*math.sin(theta)
-        append(&(global_data.vertices), Vector3{x, y, z})
+        append(&(global_data.vertices), Vector3{complex(x, 0.0), complex(y, 0.0), complex(z, 0.0)})
         g.vertices[i] = VtxId(len(global_data.vertices)-1)
     }
     n_offset := VtxId(len(g.vertices))
@@ -405,7 +405,7 @@ write_grid_3d_as_vtk :: proc (filename: string) {
     fmt.fprintln(f, "DATASET UNSTRUCTURED_GRID")
     fmt.fprintfln(f, "POINTS %d double", len(global_data.vertices))
     for v in global_data.vertices {
-        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(v.x), uoflowz(v.y), uoflowz(v.z))
+        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(real(v.x)), uoflowz(real(v.y)), uoflowz(real(v.z)))
     }
     n_cells := len(global_data.hexes)
     fmt.fprintln(f, "")
@@ -426,8 +426,8 @@ write_grid_3d_as_vtk :: proc (filename: string) {
  */
 
 generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
-    start := global_data.xsects[0].vertices[0].x
-    end := global_data.xsects[len(global_data.xsects)-1].vertices[0].x
+    start := real(global_data.xsects[0].vertices[0].x)
+    end := real(global_data.xsects[len(global_data.xsects)-1].vertices[0].x)
     dx := cfg.dx
 
     // Read grid at first plane
@@ -449,7 +449,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
     defer delete_cross_section_loft(&curr_loft)
 
     create_cross_section_loft(&curr_loft, &global_data.xsects[0], &global_data.xsects[1])
-    loft_end := global_data.xsects[1].vertices[0].x
+    loft_end := real(global_data.xsects[1].vertices[0].x)
     idx_loft_end := 1
 
     curr_xsect : Cross_Section
@@ -461,11 +461,11 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
         if x > loft_end {
             // Search for new loft end in cross sections, beginning from start
             for i in 1..<len(global_data.xsects) {
-                if x > global_data.xsects[i].vertices[0].x {
+                if x > real(global_data.xsects[i].vertices[0].x) {
                     idx_loft_end = i+1
                 } 
             }
-            loft_end = global_data.xsects[idx_loft_end].vertices[0].x
+            loft_end = real(global_data.xsects[idx_loft_end].vertices[0].x)
             create_cross_section_loft(&curr_loft, &global_data.xsects[idx_loft_end-1], &global_data.xsects[idx_loft_end])
         }
         create_cross_section(&curr_xsect, &curr_loft, x)

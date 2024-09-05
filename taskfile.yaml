@@ -15,7 +15,7 @@ tasks:
   test-slice:
     cmds:
       - task: build
-      - ./pvn test-slice
+      - ./pvn test-slice -init:freestream_p
     aliases: [s]
 
   test-duct:

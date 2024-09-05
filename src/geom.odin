@@ -1,7 +1,7 @@
 package pingvin
 
 
-quad_properties :: proc (q: Quad) -> (area: f64, normal, t1, t2: Vector3) {
+quad_properties :: proc (q: Quad) -> (area: complex128, normal, t1, t2: Vector3) {
     A := global_data.vertices[q[0]]
     B := global_data.vertices[q[1]]
     C := global_data.vertices[q[2]]
@@ -53,7 +53,7 @@ quad_properties :: proc (q: Quad) -> (area: f64, normal, t1, t2: Vector3) {
  * Returns:
  * volume: the volume of the hexahedron
  */
-hex_volume :: proc (h: Hex) -> (volume: f64) {
+hex_volume :: proc (h: Hex) -> (volume: complex128) {
     // A = x6 - x0
     A := global_data.vertices[h[6]] - global_data.vertices[h[0]]
     // B0 = x1 - x0
@@ -94,7 +94,7 @@ hex_centroid :: proc(h: Hex) -> Vector3 {
     return (1./8)*ctr
 }
 
-bezier_eval :: proc (bez: CubicBezier, t: f64) -> Vector3 {
+bezier_eval :: proc (bez: CubicBezier, t: complex128) -> Vector3 {
    /* use de Casteljau algorithm, but unrolled */
    b0 := (1-t)*bez.b0 + t*bez.b1
    b1 := (1-t)*bez.b1 + t*bez.b2
@@ -107,7 +107,7 @@ bezier_eval :: proc (bez: CubicBezier, t: f64) -> Vector3 {
    return b0
 }
 
-bezier_t_from_x :: proc (bez: CubicBezier, x: f64) -> (t: f64) {
+bezier_t_from_x :: proc (bez: CubicBezier, x: complex128) -> (t: complex128) {
     t = (x - bez.b0.x)/(bez.b3.x - bez.b0.x)
     return
 }

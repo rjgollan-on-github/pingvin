@@ -1,6 +1,7 @@
 package pingvin
 
 import "core:math"
+import "core:math/cmplx"
 
 // The id of a vertex *is* its index into the global array of vertices.
 // We give this a distinct integer type so that we can't use it accidentally
@@ -8,7 +9,7 @@ import "core:math"
 VtxId :: distinct int
 
 // A Cartesian vector in 3D space.
-Vector3 :: distinct [3]f64
+Vector3 :: distinct [3]complex128
 
 // A 2D face defined by end points.
 // We use indices into the global vertices array to 
@@ -42,7 +43,7 @@ VTKElement :: enum{line=3, quad=9, hex=12}
 // total number of values to represent a collection of elements.
 VtxCount := #sparse [VTKElement]int{.line=2, .quad=4, .hex=8}
 
-dot_vector3 :: proc(a, b: Vector3) -> f64 {
+dot_vector3 :: proc(a, b: Vector3) -> complex128 {
     ab := a*b
     return math.sum(ab[:])
 }
@@ -53,9 +54,9 @@ cross :: proc (a, b: Vector3) -> Vector3 {
     return i - j
 }
 
-magnitude :: proc(a: Vector3) -> (mag: f64) {
+magnitude :: proc(a: Vector3) -> (mag: complex128) {
     aa := a*a
-    mag = math.sqrt(aa.x + aa.y + aa.z)
+    mag = cmplx.sqrt(aa.x + aa.y + aa.z)
     return mag
 }
 
