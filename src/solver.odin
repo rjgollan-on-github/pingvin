@@ -26,6 +26,7 @@ prep_solver :: proc () {
 
 run_solver :: proc() {
     dx := globals.cfg.dx
+    print_every_n_slice := globals.cfg.print_every_n_slice
     slice := Slice_Id(0)
     idx_loft_end := 0
     n_seg := len(global_data.xsects[0].vertices)
@@ -53,7 +54,9 @@ run_solver :: proc() {
             fmt.println("pvn: exiting")
             os.exit(1)
         }
-        fmt.printfln("converged: slice-%03d @ x= %.6f", slice, x-0.5*dx)
+        if (int(slice) % print_every_n_slice) == 0 {
+            fmt.printfln("converged: slice-%03d @ x= %.6f", slice, x-0.5*dx)
+        }
         
         // Get up grid ready for next slice
         copy_grid_2d(&global_data.up_grid, &global_data.dn_grid)

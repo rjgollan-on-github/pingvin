@@ -132,6 +132,7 @@ eval_jacobian_vector_product :: proc (slice: ^Slice, v, Jv: []f64) {
 solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
     slice := &global_data.slices[slice_no]
     cfg := globals.cfg
+    print_every_n_slice := cfg.print_every_n_slice
     is_converged = false
     // 0. Determine residual norm at start
     eval_slice_residual(slice)
@@ -158,15 +159,21 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
         // Check on convergence
         rel_residual := R_norm/R0_norm
         dU_norm := slice_dU_norm(slice)
-        fmt.printfln("  [slice-%03d]: step= %d, rel. residual= %.6e  ||dU||= %.6e", slice_no, step, rel_residual, dU_norm)
+        if (int(slice_no) % print_every_n_slice) == 0 {
+            fmt.printfln("  [slice-%03d]: step= %d, rel. residual= %.6e  ||dU||= %.6e", slice_no, step, rel_residual, dU_norm)
+        }
         if rel_residual < cfg.slice_relative_residual {
             is_converged = true
-            fmt.println("    !!! Slice converged: relative residual target achieved. !!!")
+            if (int(slice_no) % print_every_n_slice) == 0 {
+                fmt.println("    !!! Slice converged: relative residual target achieved. !!!")
+            }
             return is_converged
         }
         if dU_norm < cfg.slice_change_in_update {
             is_converged = true
-            fmt.println("    !!! Slice converged: target for change over step (||dU||) achieved. !!!")
+            if (int(slice_no) % print_every_n_slice) == 0 {
+                fmt.println("    !!! Slice converged: target for change over step (||dU||) achieved. !!!")
+            }
             return is_converged
         }
     }
