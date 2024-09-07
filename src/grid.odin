@@ -269,13 +269,6 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
  * Writing functions related to writing grids to VTK format.
  */
 
-uoflowz :: proc (q: f64, tiny : f64 = math.F32_MIN, huge : f64 = math.F32_MAX) -> (qsafe: f64) {
-    qsafe = q
-    if math.abs(q) < tiny { qsafe = 0.0 }
-    if math.abs(q) > huge { qsafe = math.copy_sign(huge, q)}
-    return q
-}
-
 write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
     f, err := os.open(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
     defer os.close(f)
@@ -287,7 +280,7 @@ write_grid_2d_as_vtk :: proc (filename: string, g: ^Grid_2d) {
     fmt.fprintfln(f, "POINTS %d double", len(g.vertices))
     for v_id in g.vertices {
         v := global_data.vertices[v_id]
-        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(real(v.x)), uoflowz(real(v.y)), uoflowz(real(v.z)))
+        fmt.fprintfln(f, "%.16e %.16e %.16e", real(v.x), real(v.y), real(v.z))
     }
     n_cells := len(global_data.quads)
     fmt.fprintln(f, "")
@@ -405,7 +398,7 @@ write_grid_3d_as_vtk :: proc (filename: string) {
     fmt.fprintln(f, "DATASET UNSTRUCTURED_GRID")
     fmt.fprintfln(f, "POINTS %d double", len(global_data.vertices))
     for v in global_data.vertices {
-        fmt.fprintfln(f, "%.16e %.16e %.16e", uoflowz(real(v.x)), uoflowz(real(v.y)), uoflowz(real(v.z)))
+        fmt.fprintfln(f, "%.16e %.16e %.16e", real(v.x), real(v.y), real(v.z))
     }
     n_cells := len(global_data.hexes)
     fmt.fprintln(f, "")

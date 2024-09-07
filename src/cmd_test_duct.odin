@@ -12,7 +12,7 @@ test_xsect_dir :: "test-assets/duct/xsect"
 @(private="file")
 test_job_file :: "test-assets/duct/job.lua"
 @(private="file")
-test_output_file :: "test-assets/duct/test-pingvin-flow-field.vtk"
+test_output_file :: "test-assets/duct/duct-test.vtu"
 
 TestDuctCmd := Command {
     main = test_duct,
@@ -25,7 +25,7 @@ test_duct :: proc (args : []string) -> (result : bool) {
     globals.cfg = read_config_from_lua_file(test_job_file)
     globals.cfg.grid2d_file = test_grid
     globals.cfg.cross_section_dir = test_xsect_dir
-    globals.cfg.output_vtk_file = test_output_file
+    globals.cfg.output_vtu_file = test_output_file
     fmt.println("")
 
     fmt.println("test-duct: Prepare solver...")
