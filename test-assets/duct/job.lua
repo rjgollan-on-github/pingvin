@@ -1,5 +1,6 @@
 grid2d_file = "qcirc.su2"
 cross_section_dir = "xsect"
+print_every_n_slice = 1
 no_cross_sections = 11
 dx = 0.1
 -- inflow conditions
@@ -12,6 +13,6 @@ max_gmres_iterations = 100
 gmres_relative_residual = 0.0001
 slice_change_in_update = 1.0e-8
 -- output
-output_vtk_file = "duct-test.vtk"
+output_vtu_file = "duct-test.vtu"
 
 

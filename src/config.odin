@@ -10,7 +10,6 @@ import lua "vendor:lua/5.4"
 Config :: struct {
     grid2d_file :                string,
     cross_section_dir :          string,
-    output_vtu_file :            string,
     print_every_n_slice :        int,
     n_xsects :                   int,
     dx :                         f64,
@@ -116,9 +115,6 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
 
     str_result, found = lua_get_optional_string(L, "cross_section_dir")
     if found do cfg.cross_section_dir = str_result
-
-    str_result, found = lua_get_optional_string(L, "output_vtu_file")
-    if found do cfg.output_vtu_file = str_result
 
     int_result, found = lua_get_optional_integer(L, "print_every_n_slice")
     if found do cfg.print_every_n_slice = int_result

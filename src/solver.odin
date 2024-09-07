@@ -65,6 +65,7 @@ run_solver :: proc() {
 }
 
 post_solver :: proc () {
-    write_flow_field_as_vtk(globals.cfg.output_vtu_file)
+    write_grid_and_field()
+    //write_flow_field_as_vtk(globals.cfg.output_vtu_file)
 }
 
