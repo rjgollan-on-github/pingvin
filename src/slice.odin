@@ -396,8 +396,6 @@ update_primitives :: proc (slice: ^Slice) {
     }
 }
 
-
-
 compute_interior_fluxes :: proc (slice: ^Slice) {
     for f_id in slice.interior_faces {
         f := &global_data.x_faces[f_id]
@@ -444,5 +442,3 @@ prep_slice :: proc (slice, prev_slice: Slice) {
         global_data.cells[i+curr_offset].pqs = global_data.cells[i+prev_offset].pqs
     }
 }
-
-

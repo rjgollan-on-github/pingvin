@@ -119,15 +119,11 @@ eval_jacobian_vector_product :: proc (slice: ^Slice, v, Jv: []f64) {
         }
     }
     // Evaluate residual
-    fmt.println("EVAL-JAC-VEC-PROD:::")
     eval_slice_residual(slice)
     // Compute Jv using Frechet derivative (in complex space)
     for &cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
         for cq, icq in Conserved_Quantities {
             Jv[i*n_cons + icq] = imag(cell.R[cq])/sigma
-            if i == 0 {
-                fmt.printfln("Jv[%d]= %.8e", icq, Jv[i*n_cons + icq])
-            }
         }
     }
     return
@@ -138,32 +134,25 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
     cfg := globals.cfg
     is_converged = false
     // 0. Determine residual norm at start
-    fmt.println("EVAL-START-NEWT:::")
     eval_slice_residual(slice)
     R0_norm := slice_residual_norm(slice)
-    fmt.printfln("R0_norm= %.16e", R0_norm)
     copy_slice_to_base_state(slice)
     copy_slice_residual_to_gws(slice)
+
+    if R0_norm < cfg.slice_absolute_residual {
+        is_converged = true
+        return is_converged
+    }
 
     // 1. Iterations: continue until a desired convergence, or max Newton steps
     max_steps := cfg.max_newton_steps
     for step in 0..<max_steps {
         // Solve
         is_gmres_converged := gmres_solve(slice)
-        fmt.printfln("        gmres converged? %v", is_gmres_converged)
-        //fmt.println("After gmres solve, dUs= ")
-        /*
-        for cell, i in global_data.cells[slice.first_cell:slice.last_cell+1] {
-            for cq in Conserved_Quantities {
-                fmt.printfln("%d: dU[%s]= %v", i, cq, cell.dU[cq])
-            }
-        }
-        */
         // Update
         update_slice(slice)
         eval_slice_residual(slice)
         R_norm := slice_residual_norm(slice)
-        fmt.printfln("R_norm= %.16e", R_norm)
         copy_slice_to_base_state(slice)
         copy_slice_residual_to_gws(slice)
         // Check on convergence
@@ -181,7 +170,7 @@ solve_slice :: proc (slice_no: Slice_Id) -> (is_converged : bool) {
             return is_converged
         }
     }
-    return is_converged    
+    return is_converged
 }
 
 copy_slice_to_base_state :: proc (slice: ^Slice) {
@@ -352,7 +341,6 @@ perform_gmres_iterations :: proc (slice: ^Slice) -> (n_iterations: int, is_conve
     compute_r0();
     beta0 := l2norm(gws.r0) // store for diagnostics
     beta := beta0
-    fmt.printfln("beta= %.8e", beta)
     gws.g0[0] = beta0
     for i in 0..<nvars {
         gws.v[i] = gws.r0[i]/beta

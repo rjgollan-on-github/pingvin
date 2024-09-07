@@ -61,7 +61,7 @@ flux_calc :: proc (L, R: [Primitive_Quantities]complex128) -> (flux: [Conserved_
     S_plus := max_complex(abs_c128(u_L - a_L), abs_c128(u_R - a_R), abs_c128(u_L + a_L), abs_c128(u_R + a_R))
 
     for &f, i in flux {
-        f = 0.5*(F_L[i] + F_R[i]) //- 0.5*S_plus*(U_R[i] - U_L[i])
+        f = 0.5*(F_L[i] + F_R[i]) - 0.5*S_plus*(U_R[i] - U_L[i])
     }
     return flux    
 }

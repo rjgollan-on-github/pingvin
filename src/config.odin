@@ -18,6 +18,7 @@ Config :: struct {
     T_inflow :                   f64,
     // Solver settings
     max_newton_steps:            int,
+    slice_absolute_residual:     f64,
     slice_relative_residual:     f64,
     slice_change_in_update:      f64,
     max_gmres_iterations:        int,
@@ -31,6 +32,7 @@ cross_section_dir = "xsect"
 output_vtk_file = "pingvin-flow-field.vtk"
 dx = -1.0
 max_newton_steps = 10
+slice_absolute_residual = 1.0e-6
 slice_relative_residual = 1.0e-6
 slice_change_in_update = 1.0e-6
 max_gmres_iterations = 10
@@ -138,6 +140,9 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     // Parameters related to solver settings
     int_result, found = lua_get_optional_integer(L, "max_newton_steps")
     if found do cfg.max_newton_steps = int_result
+
+    float_result, found = lua_get_optional_float(L, "slice_absolute_residual")
+    if found do cfg.slice_absolute_residual = float_result
 
     float_result, found = lua_get_optional_float(L, "slice_relative_residual")
     if found do cfg.slice_relative_residual = float_result

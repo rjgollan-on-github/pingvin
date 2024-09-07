@@ -46,15 +46,6 @@ run_solver :: proc() {
         update_loft(&curr_loft, x)
         create_cross_section(&curr_xsect, &curr_loft, x)
         create_slice(x, &curr_xsect, slice)
-
-        if slice == 0 {
-            rand.reset(1)
-            for &cell in global_data.cells[global_data.slices[0].first_cell:global_data.slices[0].last_cell+1] {
-                cell.cqs[.ymom] = complex(1.0*rand.float64_range(-1, 1), 0.0)
-                cell.cqs[.zmom] = complex(2.0*rand.float64_range(-1, 1), 0.0)
-            }
-        }
-        
         // Solve slice
         ok := solve_slice(slice)
         if !ok {
@@ -62,6 +53,7 @@ run_solver :: proc() {
             fmt.println("pvn: exiting")
             os.exit(1)
         }
+        fmt.printfln("converged: slice-%03d @ x= %.6f", slice, x-0.5*dx)
         
         // Get up grid ready for next slice
         copy_grid_2d(&global_data.up_grid, &global_data.dn_grid)

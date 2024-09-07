@@ -38,21 +38,13 @@ compute_residual :: proc (cell: ^Cell) {
     f_kp := global_data.x_faces[cell.faces[.k_plus]]
     for cq in Conserved_Quantities {
         cell.R[cq] = f_im.flux[cq]*f_im.area*cell.outsigns[.i_minus]
-        if cq == .mass do fmt.printfln("fid= %d:: [im] flux= %.8e  flux-deriv= %.8e ", cell.faces[.i_minus], real(f_im.flux[.mass]), imag(f_im.flux[.mass])/sigma)
         cell.R[cq] += f_ip.flux[cq]*f_ip.area*cell.outsigns[.i_plus]
-        if cq == .mass do fmt.printfln("fid= %d:: [ip] flux= %.8e  flux-deriv= %.8e ", cell.faces[.i_plus], real(f_ip.flux[.mass]), imag(f_ip.flux[.mass])/sigma)
         cell.R[cq] += f_jm.flux[cq]*f_jm.area*cell.outsigns[.j_minus]
-        if cq == .mass do fmt.printfln("fid= %d:: [jm] flux= %.8e  flux-deriv= %.8e ", cell.faces[.j_minus], real(f_jm.flux[.mass]), imag(f_jm.flux[.mass])/sigma)
         cell.R[cq] += f_jp.flux[cq]*f_jp.area*cell.outsigns[.j_plus]
-        if cq == .mass do fmt.printfln("fid= %d:: [jp] flux= %.8e  flux-deriv= %.8e ", cell.faces[.j_plus], real(f_jp.flux[.mass]), imag(f_jp.flux[.mass])/sigma)
         cell.R[cq] += f_km.flux[cq]*f_km.area*cell.outsigns[.k_minus]
-        if cq == .mass do fmt.printfln("fid= %d:: [km] flux= %.8e  flux-deriv= %.8e ", cell.faces[.k_minus], real(f_km.flux[.mass]), imag(f_km.flux[.mass])/sigma)
         cell.R[cq] += f_kp.flux[cq]*f_kp.area*cell.outsigns[.k_plus]
-        if cq == .mass do fmt.printfln("fid= %d:: [kp] flux= %.8e  flux-deriv= %.8e ", cell.faces[.k_plus], real(f_kp.flux[.mass]), imag(f_kp.flux[.mass])/sigma)
         
         cell.R[cq] *= -1.0*vol_inv
-        if cq == .mass do fmt.printfln("R= %.8e  dRdU= %.8e", real(cell.R[.mass]), imag(cell.R[.mass])/sigma)
-        
     }
 }
 
