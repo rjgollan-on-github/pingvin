@@ -15,53 +15,69 @@ def write_vtu_file():
 
     lines = fileContent.split('\n')
     # Don't need dimensions, always assume 3
-    lines.pop(0)
     # Read in number of points
-    nPoints = int(lines[0].split()[1])
-    lines.pop(0)
+    nPoints = int(lines[1].split()[1])
     
     vtuDataset = vtk.vtkUnstructuredGrid()
     points = vtk.vtkPoints()
-    for id in range(nPoints):
-        vtx = list(map(float, lines[0].split()))
+    points_start = 2
+    print("Gathering points.")
+    for id, line in enumerate(lines[points_start:points_start+nPoints]):
+        vtx = list(map(float, line.split()))
         vtx.pop() # drop the index at end
         points.InsertPoint(id, vtx)
-        lines.pop(0)
+    print("Done.")
+    print("Setting in dataset")
     vtuDataset.SetPoints(points)
+    print("Done.")
 
     # Get number of cells
-    nCells = int(lines[0].split()[1])
-    lines.pop(0)
+    cells_start = points_start+nPoints+1 # actual cells entries
+                                         # header is one line before
+    nCells = int(lines[cells_start-1].split()[1])
+    print("Allocating cells")
     vtuDataset.Allocate(nCells)
-    for id in range(nCells):
-        ids = list(map(int, lines[0].split()))
-        lines.pop(0)
+    print("Done.")
+    print("Gathering cells.")
+    for line in lines[cells_start:cells_start+nCells]:
+        ids = list(map(int, line.split()))
         ids.pop() # drop id on end
         vtuDataset.InsertNextCell(vtk.VTK_HEXAHEDRON, 8, ids)
+    print("Done.")
 
     del lines
+
 
     with gzip.open(FIELD) as f:
         fileContent = f.read().decode()
 
     lines = fileContent.split('\n')
     vars = lines[0].split()
-    lines.pop(0)
-    for var in vars:
+
+    for i, var in enumerate(vars):
+        print(f"Gathering data for {var}")
         array = vtk.vtkDoubleArray()
         array.SetNumberOfComponents(1)
         array.SetNumberOfTuples(nCells)
         array.SetName(var)
-        for id in range(nCells):
-            val = float(lines[0]),
-            lines.pop(0)
+        line_start = 1 + i*nCells
+        for id, line in enumerate(lines[line_start:line_start+nCells]):
+            val = float(line),
             array.SetTuple(id, val)
+        print("   Adding array to dataset")
         vtuDataset.GetCellData().AddArray(array)
+        print("   Done.")
+        print(f"Done for  {var}.")
 
+    print("Writing...")
     writer = vtk.vtkXMLUnstructuredGridWriter()
     writer.SetFileName(OUTPUT)
+    print("Attaching input data")
     writer.SetInputData(vtuDataset)
+    print("Done.")
+    print("Writing to disk.")
     writer.Write()
+    print("Done.")
 
     
         
