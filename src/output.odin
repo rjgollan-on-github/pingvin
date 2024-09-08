@@ -108,7 +108,6 @@ write_grid :: proc (filename : cstring) {
 
     zlib.gzprintf(f, "NDIME= 3\n")
 
-    fmt.printfln("nverts= %d", len(global_data.vertices))
     zlib.gzprintf(f, "NPOIN= %d\n", len(global_data.vertices))
     for v, i in global_data.vertices {
         zlib.gzprintf(f, "%.16e %.16e %.16e %ld\n", f64(real(v.x)), f64(real(v.y)), f64(real(v.z)), i)
