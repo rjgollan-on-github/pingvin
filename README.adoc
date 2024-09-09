@@ -1,0 +1,58 @@
+= PINGVIN: A 3D space-marching solver for simulating compressible flows
+
+Rowan J. Gollan
+2024-09-09
+
+
+
+== Prerequisite software
+
+Presently, Pingvin is designed to be quite minimal on dependencies.
+The core solver is written in the Odin programming language and some
+of the support tools rely on Python packages.
+
+You will need:
+
++ An Odin compiler
++ Python vtk package
++ Python gmsh (or an other way to generate a 2D quad mesh)
+
+=== Odin compiler
+
+Please follow the instructions at:
+
+https://odin-lang.org/docs/install/
+
+=== Python environment
+
+It's convenient to set up a Python virtual environment.
+We'll explain that in the installation instructions.
+
+== Setting up and installing Pingvin
+
+1. Download the source code from github:
+
+   > git clone https://github.com/rjgollan-on-github/pingvin.git pingvin
+
+2. Build the source
+
+   > cd pingvin
+   > make install
+
+3. Set your environment variables in a `.bashrc` (or equivalent file for your platform)
+
+    export PINGVIN=$HOME/pingvin
+    export PATH=$PINGVIN/inst:$PATH
+
+4. Set up a Python virtual environment and install required packages
+
+    > python -m venv py-env
+	> pip install vtk
+	> pip install gmsh
+
+You might need to re-login or source the `.bashrc` file to get your environment properly set.
+
+==  Trying things out
+
+Navigate to the Busemann diffuser example in pingvin/examples/diffuser-busemann, and follow the README.
+
