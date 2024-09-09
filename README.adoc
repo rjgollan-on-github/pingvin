@@ -3,6 +3,8 @@
 Rowan J. Gollan
 2024-09-09
 
+image::examples/diffuser-busemann/busemann-diffuser-Mach-field.png[align="center",width=70%]
+
 
 
 == Prerequisite software
@@ -46,13 +48,18 @@ We'll explain that in the installation instructions.
 
 4. Set up a Python virtual environment and install required packages
 
-    > python -m venv py-env
-	> pip install vtk
-	> pip install gmsh
+   > python -m venv py-env
+   > pip install vtk
+   > pip install gmsh
 
 You might need to re-login or source the `.bashrc` file to get your environment properly set.
 
 ==  Trying things out
 
 Navigate to the Busemann diffuser example in pingvin/examples/diffuser-busemann, and follow the README.
+Hopefully, you get an image something like the one at the top of this README.
+
+
+
+
 
