@@ -1,0 +1,44 @@
+= Supersonic flow through a Busemann diffuser
+
+Rowan J. Gollan
+2024-09-09
+
+This is example is taken from the paper by Moelder with flow conditions:
+[stem]
+++++
+M_1 = 5.77; \quad M_2 = 3.00; \quad M_3 = 2.48
+++++
+
+To run this example, follow the accompanying makefile in order.
+
+First, generate the 2D grid at the opening of the diffuser using gmsh:
+
+> make prep-slice-grid
+
+We then generated a series of cross-sections to provide a bounding wall
+for the simulation:
+
+> make prep-xsect
+
+The space-marching simulation relies on the Pingvin program:
+
+> make march
+
+And the output for VTK can be created using:
+
+> make vtk
+
+You can look at the output with Paraview:
+
+> paraview pvnsim/flowfield.vtu
+
+You can clean up the area using the `clean` target:
+
+> make clean
+
+
+== Reference
+
+    Moelder, S. (2003)
+    A Benchmark for Internal Flow CFD Codes
+    Computational Fluid Dynamics Journal, 12(2):47, pp.408--414
