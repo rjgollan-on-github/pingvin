@@ -31,11 +31,11 @@ march :: proc (args: []string) -> (result: bool) {
     start_time := time.tick_now()
     run_solver()
     elapsed := time.tick_since(start_time)
-    avg_per_slice := time.duration_seconds(elapsed)/f64(len(global_data.slices))
+    avg_per_slice := time.duration_milliseconds(elapsed)/f64(len(global_data.slices))
     fmt.println()
     fmt.println("--------------------------------------------------------")
     fmt.printfln("pvn: Total solve time= %.3f s", time.duration_seconds(elapsed))
-    fmt.printfln("pvn: Average solve time per slice= %.3f s", avg_per_slice)
+    fmt.printfln("pvn: Average solve time per slice= %.3f ms", avg_per_slice)
 
     start_time = time.tick_now()
     post_solver()
