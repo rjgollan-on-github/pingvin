@@ -17,7 +17,7 @@ You will need:
 
 * An Odin compiler
 * Python vtk package
-* Python gmsh (or an other way to generate a 2D quad mesh)
+* Python gmsh (or another way to generate a 2D quad mesh)
 
 === Odin compiler
 
