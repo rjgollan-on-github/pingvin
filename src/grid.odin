@@ -425,7 +425,10 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
 
     // Read grid at first plane
     up_grid : Grid_2d
-    read_su2_2d_file(&up_grid, cfg.grid2d_file)
+    err := read_su2_2d_file(&up_grid, cfg.grid2d_file)
+    if err != nil {
+        fmt.printfln("pvn: Error reading 2D grid file '%s'", cfg.grid2d_file)
+    }
     dn_grid : Grid_2d
     allocate_grid_2d(&dn_grid, len(up_grid.vertices), len(up_grid.quads))
     defer delete_grid_2d(&up_grid)
@@ -449,7 +452,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
     allocate_cross_section(&curr_xsect, n_seg)
     defer delete_cross_section(&curr_xsect)
 
-    for x := start; x < (end + 0.1*dx); x += dx {
+    for x := start + dx; x < (end + 0.1*dx); x += dx {
         // We might need to create a new loft
         if x > loft_end {
             // Search for new loft end in cross sections, beginning from start
