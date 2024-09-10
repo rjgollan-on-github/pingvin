@@ -48,11 +48,12 @@ We'll explain that in the installation instructions.
 
 4. Set up a Python virtual environment and install required packages
 
-   > python -m venv py-env
+   > python(3) -m venv py-env
    > source py-env/bin/activate
    > pip install vtk
    > pip install gmsh
 
+Use `python3` if your system doesn't provide a `python` command that points to a Python 3 installation.
 You might need to re-login or source the `.bashrc` file to get your environment properly set.
 
 ==  Trying things out
