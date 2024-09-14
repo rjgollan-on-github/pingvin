@@ -1,0 +1,11 @@
+set term pdfcairo enhanced font "courier,15"
+set output "shock-tube-w-bap-fluxes.pdf"
+
+set xlabel "x, m"
+set ylabel "density, kg/m^3"
+
+set key autotitle
+
+plot 'sod-first-order.dat' u "x":"rho" t 'first order' w linesp pt 5 ps 0.25, \
+     'sod-second-order.dat' u "x":"rho" t 'second order' w linesp pt 7 ps 0.25, \
+     'analytic.data' u 1:2 t 'analytical' w l
