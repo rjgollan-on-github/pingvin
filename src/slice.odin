@@ -7,6 +7,7 @@ import "core:log"
 import "base:runtime"
 
 Slice :: struct {
+    id :              Slice_Id,
     n_cells    :      int,
     first_cell :      Cell_Id,
     last_cell  :      Cell_Id,
@@ -380,7 +381,7 @@ create_slice :: proc (x: f64, xsect: ^Cross_Section, slice: Slice_Id) {
     if (slice == 0) {
         assemble_initial_upstream_interfaces(up_g^)
     }
-    append(&global_data.slices, Slice{})
+    append(&global_data.slices, Slice{id=slice})
     assemble_slice_cells_and_interfaces(&global_data.slices[slice], up_g.quads[:], dn_g.quads[:], slice)
     if (slice == 0) {
         apply_inflow(&global_data.slices[0])
@@ -409,6 +410,17 @@ compute_residuals :: proc (slice: Slice) {
     }
 }
 
+reconstruct_downstream_flux :: proc (slice : ^Slice) {
+    n_cells := slice.n_cells
+    for i in slice.first_cell..=slice.last_cell {
+        flux := bap_downstream_flux(global_data.cells[i].pqs, global_data.cells[int(i)-n_cells].pqs)
+        for cq in Conserved_Quantities {
+            global_data.m_faces[int(i)+n_cells].flux[cq] = flux[cq]
+        }
+    }
+    return
+}
+
 eval_slice_residual :: proc (slice: ^Slice) {
     // 1. Update primitive values
     update_primitives(slice)
@@ -425,7 +437,11 @@ eval_slice_residual :: proc (slice: ^Slice) {
     compute_interior_fluxes(slice)
     apply_slip_wall_flux(slice.wall_faces[:])
     apply_symm_flux(slice.symm_faces[:])
-    apply_downstream_flux(slice.dn_faces)
+    if (slice.id == 0) || (globals.cfg.streamwise_flux_reconstruction == false) {
+        apply_downstream_flux(slice.dn_faces)
+    } else {
+        reconstruct_downstream_flux(slice)
+    }
 
     transform_interior_flux_to_global_frame(slice.interior_faces[:])
 

@@ -16,6 +16,8 @@ Config :: struct {
     Mach_inflow :                f64,
     p_inflow :                   f64,
     T_inflow :                   f64,
+    // Spatial approximations
+    streamwise_flux_reconstruction : bool,
     // Solver settings
     max_newton_steps:            int,
     slice_absolute_residual:     f64,
@@ -32,6 +34,7 @@ cross_section_dir = "xsect"
 output_vtk_file = "pingvin-flow-field.vtu"
 print_every_n_slice = 50
 dx = -1.0
+streamwise_flux_reconstruction = true
 max_newton_steps = 10
 slice_absolute_residual = 1.0e-6
 slice_relative_residual = 1.0e-6
@@ -99,13 +102,25 @@ lua_get_optional_float :: proc (L: ^lua.State, field: cstring) -> (result: f64, 
     return result, found
 }
 
+lua_get_optional_bool :: proc (L: ^lua.State, field: cstring) -> (result: bool, found: bool) {
+    found = false
+    lua.getglobal(L, field)
+    if !lua.isnil(L, -1) {
+        result = bool(lua.toboolean(L, -1))
+        found = true
+    }
+    lua.pop(L, 1)
+    return result, found
+}
+
+
 read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     L := lua.L_newstate()
     lua.open_base(L)
     lua.L_dostring(L, defaults)
     lua.L_dofile(L, strings.unsafe_string_to_cstring(filename))
 
-    found : bool
+    bool_result, found : bool
     str_result : string
     int_result : int
     float_result : f64
@@ -137,6 +152,10 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
 
     err_msg = "PVN-ERROR: 'T_inflow' not set in job input file. A floating point value is expected."
     cfg.T_inflow = lua_get_float(L, "T_inflow", err_msg)
+
+    // Parameters related to spatial approximations
+    bool_result, found = lua_get_optional_bool(L, "streamwise_flux_reconstruction")
+    if found do cfg.streamwise_flux_reconstruction = bool_result
     
     // Parameters related to solver settings
     int_result, found = lua_get_optional_integer(L, "max_newton_steps")

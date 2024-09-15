@@ -1,6 +1,8 @@
 package pingvin
 
 import "core:fmt"
+import "core:math/cmplx"
+
 // For interior faces
 low_order_reconstruction :: proc (faces: []Interface_Id) {
     for f_id in faces {
@@ -30,4 +32,15 @@ low_order_recon_boundary :: proc (faces: []Interface_Id) {
     }
 }
 
+// flux reconstruction via biased averaging procedure
+B :: proc (x: complex128) -> complex128 {
+    return x/(cmplx.sqrt(1. + x*x) + 1.)
+}
 
+B_inv :: proc (x: complex128) -> complex128 {
+    return (2.*x)/(1. - x*x)
+}
+
+slope_average :: proc (s_l, s_r : complex128) -> complex128 {
+    return B_inv((B(s_l) + B(s_r))/2.)
+}
