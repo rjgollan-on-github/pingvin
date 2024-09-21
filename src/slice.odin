@@ -76,7 +76,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     for i in 0..<n_cells {
         qu := up_q[i]
         qd := dn_q[i]
-        hex := hex_from_quads(qd, qu)
+        hex := hex_from_quads(qu, qd)
         append(&global_data.hexes, hex)
         vol := hex_volume(hex)
         ctr := hex_centroid(hex)
@@ -88,7 +88,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         im_id := Interface_Id(int(slice_no)*n_cells + i)
         im_face := global_data.m_faces[im_id]
         global_data.cells[cell_id].faces[.i_minus] = im_id
-        global_data.cells[cell_id].outsigns[.i_minus] = complex(1, 0)
+        global_data.cells[cell_id].outsigns[.i_minus] = complex(-1, 0)
         global_data.m_faces[im_id].left_cells = {cell_id, -1}
         if (global_data.m_faces[im_id].right_cells[0] >= 0) {
             // We can set the second left cell of the previous cell.
@@ -104,11 +104,11 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         ip_face.right_cells = {cell_id, im_face.right_cells[0]}
         ip_face.left_cells = {-1, -1}
         global_data.cells[cell_id].faces[.i_plus] = ip_id
-        global_data.cells[cell_id].outsigns[.i_plus] = complex(-1, 0)
+        global_data.cells[cell_id].outsigns[.i_plus] = complex(1, 0)
         append_soa(&global_data.m_faces, ip_face)
         
         // j_minus face
-        jm_quad := Quad{qu[0], qd[0], qd[1], qu[1]}
+        jm_quad := Quad{qu[1], qd[1], qd[0], qu[0]}
         jm_tag := make_face_tag(jm_quad)
         jm_id, exists = x_face_tags[jm_tag]
         if !exists {
@@ -153,7 +153,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         global_data.cells[cell_id].faces[.j_minus] = jm_id
 
         // j_plus face
-        jp_quad := Quad{qu[2], qd[2], qd[3], qu[3]}
+        jp_quad := Quad{qu[3], qd[3], qd[2], qu[2]}
         jp_tag := make_face_tag(jp_quad)
         jp_id, exists = x_face_tags[jp_tag]
         if !exists {
@@ -198,7 +198,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         global_data.cells[cell_id].faces[.j_plus] = jp_id
 
         // k_minus face
-        km_quad := Quad{qu[3], qd[3], qd[0], qu[0]}
+        km_quad := Quad{qu[0], qd[0], qd[3], qu[3]}
         km_tag := make_face_tag(km_quad)
         km_id, exists = x_face_tags[km_tag]
         if !exists {
@@ -243,7 +243,7 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         global_data.cells[cell_id].faces[.k_minus] = km_id
 
         // k_plus face
-        kp_quad := Quad{qu[1], qd[1], qd[2], qu[2]}
+        kp_quad := Quad{qu[2], qd[2], qd[1], qu[1]}
         kp_tag := make_face_tag(kp_quad)
         kp_id, exists = x_face_tags[kp_tag]
         if !exists {

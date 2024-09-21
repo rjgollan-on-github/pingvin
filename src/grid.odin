@@ -196,10 +196,14 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
             return GridReadingError{msg=msg}
         }
         i := strconv.atoi(tokens[5])
-        global_data.quads[i] = {VtxId(strconv.atoi(tokens[1])),
-                                VtxId(strconv.atoi(tokens[2])),
+        // Assemble quad in what appears to be reverse order.
+        // The reason is that the GMSH grid was built in the x-y plane
+        // We now want to work in z-y plane, so this reversal gives
+        // us a face normal that points in positive x direction.
+        global_data.quads[i] = {VtxId(strconv.atoi(tokens[4])),
                                 VtxId(strconv.atoi(tokens[3])),
-                                VtxId(strconv.atoi(tokens[4]))}
+                                VtxId(strconv.atoi(tokens[2])),
+                                VtxId(strconv.atoi(tokens[1]))}
         grid.quads[i] = global_data.quads[i]
     }
 

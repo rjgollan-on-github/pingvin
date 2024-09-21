@@ -18,9 +18,9 @@ apply_inflow :: proc (slice: ^Slice) {
     ke := 0.5*u*u
     E := e + ke
     flux : [Conserved_Quantities]complex128
-    flux[.mass] = -rho*u
-    flux[.xmom] = flux[.mass]*u - p
-    flux[.energy] = flux[.mass]*E - p*u
+    flux[.mass] = rho*u
+    flux[.xmom] = flux[.mass]*u + p
+    flux[.energy] = flux[.mass]*E + p*u
     for &f in slice.up_faces {
         f.flux = flux
     }
@@ -43,26 +43,26 @@ apply_downstream_flux :: proc (faces: #soa[]Interface) {
         w := f.right[.zvel]
         ke := 0.5*(u*u + v*v + w*w)
         E := f.right[.e] + ke
-        f.flux[.mass] = -rho*u
-        f.flux[.xmom] = f.flux[.mass]*u - p
+        f.flux[.mass] = rho*u
+        f.flux[.xmom] = f.flux[.mass]*u + p
         f.flux[.ymom] = f.flux[.mass]*v
         f.flux[.zmom] = f.flux[.mass]*w
-        f.flux[.energy] = f.flux[.mass]*E - p*u
+        f.flux[.energy] = f.flux[.mass]*E + p*u
     }
 }
 
 bap_downstream_flux :: proc (P, Pm1 : [Primitive_Quantities]complex128) -> (flux : [Conserved_Quantities]complex128) {
     dx := complex(globals.cfg.dx, 0.0)
     // mass
-    f_j_mass := -P[.rho] * P[.xvel]
-    f_jm1_mass := -Pm1[.rho] * Pm1[.xvel]
+    f_j_mass := P[.rho] * P[.xvel]
+    f_jm1_mass := Pm1[.rho] * Pm1[.xvel]
     s_l := (f_j_mass - f_jm1_mass)/dx
     s_r := complex(0.0, 0.0)
     s_j := slope_average(s_l, s_r)
     flux[.mass] = f_j_mass + s_l*dx/2.0
     // x-mom
-    f_j := f_j_mass * P[.xvel] - P[.p]
-    f_jm1 := f_jm1_mass * Pm1[.xvel] - Pm1[.p]
+    f_j := f_j_mass * P[.xvel] + P[.p]
+    f_jm1 := f_jm1_mass * Pm1[.xvel] + Pm1[.p]
     s_l = (f_j - f_jm1)/dx
     s_j = slope_average(s_l, s_r)
     flux[.xmom] = f_j + s_l*dx/2.0
@@ -80,9 +80,9 @@ bap_downstream_flux :: proc (P, Pm1 : [Primitive_Quantities]complex128) -> (flux
     flux[.zmom] = f_j + s_l*dx/2.0
     // energy
     E := P[.e] + 0.5*(P[.xvel]*P[.xvel] + P[.yvel]*P[.yvel] + P[.zvel]*P[.zvel])
-    f_j = f_j_mass * E - P[.p]*P[.xvel]
+    f_j = f_j_mass * E + P[.p]*P[.xvel]
     E = Pm1[.e] + 0.5*(Pm1[.xvel]*Pm1[.xvel] + Pm1[.yvel]*Pm1[.yvel] + Pm1[.zvel]*Pm1[.zvel])
-    f_jm1 = f_j_mass * E - Pm1[.p]*Pm1[.xvel]
+    f_jm1 = f_j_mass * E + Pm1[.p]*Pm1[.xvel]
     s_l = (f_j - f_jm1)/dx
     s_j = slope_average(s_l, s_r)
     flux[.energy] = f_j + s_l*dx/2.0
