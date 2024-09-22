@@ -1,4 +1,4 @@
-= PINGVIN: A 3D space-marching solver for simulating compressible flows
+= PINGVIN: A 3D space-marching solver for simulating supersonic gas dynamics
 
 Rowan J. Gollan
 2024-09-09
@@ -16,8 +16,9 @@ of the support tools rely on Python packages.
 You will need:
 
 * An Odin compiler
-* Python vtk package
+* Python pyvista package
 * Python gmsh (or another way to generate a 2D quad mesh)
+* Python click package
 
 === Odin compiler
 
@@ -50,8 +51,9 @@ We'll explain that in the installation instructions.
 
    > python(3) -m venv py-env
    > source py-env/bin/activate
-   > pip install vtk
+   > pip install pyvista
    > pip install gmsh
+   > pip install click
 
 Use `python3` if your system doesn't provide a `python` command that points to a Python 3 installation.
 You might need to re-login or source the `.bashrc` file to get your environment properly set.
