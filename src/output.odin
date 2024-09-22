@@ -125,12 +125,22 @@ write_flow_field :: proc (filename : cstring) {
     f := zlib.gzopen64(filename, "w7")
     defer zlib.gzclose(f)
 
+    zlib.gzprintf(f, "vol area-zy ")
     for q in Primitive_Quantities {
         q_str := fmt.tprintf("%s", q)
         q_cstr := strings.unsafe_string_to_cstring(q_str)
         zlib.gzprintf(f, "%s ", q_cstr)
     }
     zlib.gzprintf(f, "Mach\n")
+
+    for cell in global_data.cells {
+        zlib.gzprintf(f, "%.18e\n", f64(real(cell.volume)))
+    }
+    for cell in global_data.cells {
+        f_m := global_data.m_faces[cell.faces[.i_minus]]
+        f_p := global_data.m_faces[cell.faces[.i_plus]]
+        zlib.gzprintf(f, "%.18e\n", f64(0.5*(real(f_m.area) + real(f_p.area))))
+    }
 
     for q in Primitive_Quantities {
         for cell in global_data.cells {
