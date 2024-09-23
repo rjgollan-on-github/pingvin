@@ -62,7 +62,7 @@ You might need to re-login or source the `.bashrc` file to get your environment 
 
 ==  Trying things out
 
-Navigate to the Busemann diffuser example in pingvin/examples/diffuser-busemann, and follow the README.
+Navigate to the Busemann diffuser example in `pingvin/examples/diffuser-busemann`, and follow the README.
 Hopefully, you get an image something like the one at the top of this README.
 
 
