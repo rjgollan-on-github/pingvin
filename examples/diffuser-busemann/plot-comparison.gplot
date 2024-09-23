@@ -1,0 +1,12 @@
+set term pngcairo enhanced font "Courier,15"
+set output "busemann-Mach-dist-comparison.png"
+
+set xlabel "x, m"
+set ylabel "Mach number"
+set key bottom left
+
+plot 'pingvin-oned-stream-thrust-avg.data' u "x":"Mach" t 'stream thrust average' w l lw 1.5, \
+     'pingvin-oned-mass-flow-avg.data' u "x":"Mach" t 'mass flow weighted average' w l lw 1.5, \
+     'pingvin-oned-area-avg.data' u "x":"Mach" t 'area weighted average' w l lw 1.5
+ 
+
