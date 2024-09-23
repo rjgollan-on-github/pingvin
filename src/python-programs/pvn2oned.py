@@ -73,7 +73,7 @@ def run(xLoc, nSlices, outfile):
         print("...")
 
     if doSlicing:
-        slices = mesh.slice_along_axis(n=nSlices, axis="x")
+        slices = mesh.slice_along_axis(n=nSlices, axis="x", tolerance=0.001)
         vars = ('p', 'T', 'rho', 'Mach', 'xvel', 'yvel', 'zvel')
 
         with open(f"{outfile}-area-avg.data", "w") as fa, \
