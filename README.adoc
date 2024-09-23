@@ -18,6 +18,7 @@ You will need:
 * An Odin compiler
 * Python pyvista package
 * Python gmsh (or another way to generate a 2D quad mesh)
+* Python scipy
 * Python click package
 
 === Odin compiler
@@ -53,6 +54,7 @@ We'll explain that in the installation instructions.
    > source py-env/bin/activate
    > pip install pyvista
    > pip install gmsh
+   > pip install scipy
    > pip install click
 
 Use `python3` if your system doesn't provide a `python` command that points to a Python 3 installation.
