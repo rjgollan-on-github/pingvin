@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 
 VTUFILE = "pvnsim/flowfield.vtu"
 GAMMA = 1.4
-R = 287.1
+R = 287.0
 
 Fields = ['xvel', 'yvel', 'zvel', 'Mach',
           'p', 'T', 'rho']
@@ -23,11 +23,11 @@ Fields = ['xvel', 'yvel', 'zvel', 'Mach',
               default=-1,
               help="number of slices for extracting one-d properties (distributed equally in x)",
               show_default=False)
-@click.option("-o", "--output-file", "outFile",
+@click.option("-o", "--output-file", "outfile",
               default='pingvin-oned',
               help="base filename for output of slice data",
               show_default=True)
-def run(xLoc, nSlices, outFile):
+def run(xLoc, nSlices, outfile):
 
     # Determine what actions to take
     printSingleLoc = False
@@ -40,8 +40,7 @@ def run(xLoc, nSlices, outFile):
 
     # Load data file (or just exit)
     if doSlicing or printSingleLoc:
-        reader = pv.get_reader(VTUFILE)
-        mesh = reader.read()
+        mesh = pv.read(VTUFILE)
     else:
         print("pvn2oned: No action requested.")
         print("pvn2oned: Consider using one or both of:")
@@ -52,6 +51,8 @@ def run(xLoc, nSlices, outFile):
 
     if printSingleLoc:
         slice = mesh.slice(origin=(xLoc, 0.0, 0.0), normal=(1.0, 0.0, 0.0))
+        # Compute GAMMA and R from information slice
+        set_gamma_and_r(slice)
         area_avg, mass_flow_avg, st_avg, area = compute_slice_averages(slice, xLoc)
 
         
@@ -71,6 +72,40 @@ def run(xLoc, nSlices, outFile):
         print_avg(area_avg)
         print("...")
 
+    if doSlicing:
+        slices = mesh.slice_along_axis(n=nSlices, axis="x")
+        vars = ('p', 'T', 'rho', 'Mach', 'xvel', 'yvel', 'zvel')
+
+        with open(f"{outfile}-area-avg.data", "w") as fa, \
+             open(f"{outfile}-mass-flow-avg.data", "w") as fm, \
+             open(f"{outfile}-stream-thrust-avg.data", "w") as fs:
+
+            header = "x area p T rho Mach xvel yvel zvel\n"
+            fa.write(header)
+            fm.write(header)
+            fs.write(header)
+             
+            for i, slice in enumerate(slices):
+                if i == 0:
+                    set_gamma_and_r(slice)
+                x = slice.get_cell(0).center[0]
+                print(f"-- slice-{i:03d} @ x={x:.3f} --")
+                print("     computing averaged properties")
+                area_avg, mass_flow_avg, st_avg, area = compute_slice_averages(slice, xLoc)
+                x_area_str = f"{x:.6e} {area:.6e} "
+                fa.write(x_area_str)
+                fm.write(x_area_str)
+                fs.write(x_area_str)
+                for v in vars:
+                    fa.write(f"{area_avg[v]:.6e} ")
+                    fm.write(f"{mass_flow_avg[v]:.6e} ")
+                    fs.write(f"{st_avg[v]:.6e} ")
+                fa.write("\n")
+                fm.write("\n")
+                fs.write("\n")
+                print("     written to file")
+                print("")
+
     return
 
 def print_avg(avg):
@@ -82,7 +117,19 @@ def print_avg(avg):
     print(f"  - y-velocity:     [{avg['yvel']:.3e}, 'm/s']")
     print(f"  - z-velocity:     [{avg['zvel']:.3e}, 'm/s']")
     return
-            
+
+def set_gamma_and_r(slice):
+    global GAMMA, R
+    p = slice.cell_data['p'][0]
+    rho = slice.cell_data['rho'][0]
+    e = slice.cell_data['e'][0]
+    T = slice.cell_data['T'][0]
+    GAMMA = p/(rho*e) + 1.0
+    Cv = e/T
+    R = (GAMMA - 1.0)*Cv
+    print(f"# GAMMA set: \t {GAMMA:.2f}")
+    print(f"# R set: \t {R:.2f}")
+    return
         
 def compute_slice_averages(slice, xLoc):
     area_avg, area = area_weighted_average(slice)
@@ -147,8 +194,9 @@ def stream_thrust_average(slice, area, xLoc):
     f_mass, f_xmom, f_ymom, f_zmom, f_energy = compute_fluxes(slice)
 
     def f(x):
-        rho, e, u, v, w = x
-        p = rho*(GAMMA - 1.0)*e
+        rho, T, u, v, w = x
+        p = rho*R*T
+        e = T*R/(GAMMA - 1.0)
         E = e + 0.5*(u*u + v*v + w*w)
         # Compute errors
         fmass_err = abs(f_mass - rho*u*area)/(abs(f_mass))
@@ -161,13 +209,13 @@ def stream_thrust_average(slice, area, xLoc):
 
     # set guesses for minimizer
     rho = median(slice.cell_data['rho']); rho_min = min(slice.cell_data['rho']); rho_max = max(slice.cell_data['rho'])
-    e = median(slice.cell_data['e']); e_min = min(slice.cell_data['e']); e_max = max(slice.cell_data['e'])
+    T = median(slice.cell_data['T']); T_min = min(slice.cell_data['T']); T_max = max(slice.cell_data['T'])
     u = median(slice.cell_data['xvel']); u_min = min(slice.cell_data['xvel']); u_max = max(slice.cell_data['xvel'])
     v = median(slice.cell_data['yvel']); v_min = min(slice.cell_data['yvel']); v_max = max(slice.cell_data['yvel'])
     w = median(slice.cell_data['zvel']); w_min = min(slice.cell_data['zvel']); w_max = max(slice.cell_data['zvel'])
-    x0 = [rho, e, u, v, w]
-    bounds = [(rho_min, rho_max), (e_min, e_max), (u_min, u_max), (v_min, v_max), (w_min, w_max)]
-    result = minimize(f, x0, method='Powell', bounds=bounds)
+    x0 = [rho, T, u, v, w]
+    bounds = [(rho_min, rho_max), (T_min, T_max), (u_min, u_max), (v_min, v_max), (w_min, w_max)]
+    result = minimize(f, x0, method='Powell', bounds=bounds, options={'ftol':1.0e-5, 'xtol':1.0e-5})
 
     if not result.success:
         print(f"pvn2oned: Error when attempting to compute stream-thrust average for slice at x= {xLoc}.")
@@ -179,11 +227,10 @@ def stream_thrust_average(slice, area, xLoc):
         sys.exit(1)
     
     avg = dict.fromkeys(Fields, 0.0)
-    rho, e, u, v, w, = result.x
+    rho, T, u, v, w, = result.x
     avg['rho'] = rho
-    p = rho*(GAMMA - 1.0)*e
+    p = rho*R*T           
     avg['p'] = p
-    T = p/(rho*R)
     avg['T'] = T
     avg['xvel'] = u
     avg['yvel'] = v
