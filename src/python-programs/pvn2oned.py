@@ -6,8 +6,8 @@ import pyvista as pv
 
 VTUFILE = "pvnsim/flowfield.vtu"
 
-Properties = ['u', 'M', 'p', 'T', 'rho', 'p_tot', 'T_tot']
-
+Fields = ['xvel', 'yvel', 'zvel', 'Mach',
+          'p', 'T', 'rho']
 
 @click.command()
 @click.option("-@", "--at-x-loc", "xLoc",
@@ -18,8 +18,8 @@ Properties = ['u', 'M', 'p', 'T', 'rho', 'p_tot', 'T_tot']
               help="number of slices for extracting one-d properties (distributed equally in x)",
               show_default=False)
 @click.option("-o", "--output-file", "outFile",
-              default='pingvin-oned.data',
-              help="name of output file for slice data",
+              default='pingvin-oned',
+              help="base filename for output of slice data",
               show_default=True)
 def run(xLoc, nSlices, outFile):
 
@@ -46,32 +46,72 @@ def run(xLoc, nSlices, outFile):
 
     if printSingleLoc:
         slice = mesh.slice(origin=(xLoc, 0.0, 0.0), normal=(1.0, 0.0, 0.0))
-        (area_avg, ) = compute_slice_averages(slice)
-        print(f"Area-weighted average properties at x = {xLoc:.3e}")
-        print(area_avg)
+        area_avg, mass_flow_avg, area = compute_slice_averages(slice)
+
+        
+        print(f"# Averaged properties at x = {xLoc:.3f}")
+        print("---")
+        print(f"x-location:      [{xLoc:.6e}, 'm']")
+        print(f"area-slice:      [{area:.6e}, 'm^2']")
+        print(f"number-of-cells:  {slice.n_cells}")
+        print("")
+        print("mass-flow-weighted-average:")
+        print_avg(mass_flow_avg)
+        print("")
+        print("area-weighted-average:")
+        print_avg(area_avg)
+        print("...")
 
     return
-    
+
+def print_avg(avg):
+    print(f"  - pressure:       [{avg['p']:.3e}, 'Pa']")
+    print(f"  - temperature:    [{avg['T']:.3e}, 'K']")
+    print(f"  - density:        [{avg['rho']:.3e}, 'kg/m^3']")
+    print(f"  - Mach-number:    [{avg['Mach']:.3e}, '-']")
+    print(f"  - x-velocity:     [{avg['xvel']:.3e}, 'm/s']")
+    print(f"  - y-velocity:     [{avg['yvel']:.3e}, 'm/s']")
+    print(f"  - z-velocity:     [{avg['zvel']:.3e}, 'm/s']")
+    return
+            
         
 def compute_slice_averages(slice):
-    return area_weighted_average(slice), 
+    area_avg, area = area_weighted_average(slice)
+    mass_flow_avg = mass_flow_weighted_average(slice)
+    return area_avg, mass_flow_avg, area
     
 
 def area_weighted_average(slice):
-    avg = dict.fromkeys(Properties, 0.0)
+    avg = dict.fromkeys(Fields, 0.0)
     area = 0.0
     for i in range(slice.n_cells):
         dA = slice.cell_data['area-zy'][i]
         area += dA
-        avg['u'] += slice.cell_data['xvel'][i]*dA
-        avg['M'] += slice.cell_data['Mach'][i]*dA
-        avg['p'] += slice.cell_data['p'][i]*dA
-        avg['T'] += slice.cell_data['T'][i]*dA
-        avg['rho'] += slice.cell_data['rho'][i]*dA
+        for k in avg.keys():
+            avg[k] += slice.cell_data[k][i]*dA
     for k in avg.keys():
         avg[k] /= area
         avg[k] = float(avg[k])
+    return avg, area
+
+def mass_flow_weighted_average(slice):
+    avg = dict.fromkeys(Fields, 0.0)
+    f_mass = 0.0
+    for i in range(slice.n_cells):
+        dA = slice.cell_data['area-zy'][i]
+        rho = slice.cell_data['rho'][i]
+        u = slice.cell_data['xvel'][i]
+        df = rho*u*dA
+        f_mass += df
+        for k in avg.keys():
+            avg[k] += slice.cell_data[k][i]*df
+    for k in avg.keys():
+        avg[k] /= f_mass
+        avg[k] = float(avg[k])
     return avg
+        
+
+
 
 if __name__ == '__main__':
     run()
