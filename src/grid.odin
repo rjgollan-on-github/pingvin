@@ -10,6 +10,8 @@ import "core:log"
 import "core:math"
 
 
+SMALL_THETA_TOL := 1.0e-6
+
 /*
  * Errors related to grids
  */
@@ -308,13 +310,13 @@ argument_yz :: proc (v: Vector3) -> f64 {
 }
 
 find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB: Vector3, result: bool) {
-    //log.debugf("find: theta= %v", theta)
+    //fmt.printfln("find: theta= %.18e", theta)
     for i in 0..<len(xsect.vertices)-1 {
         p0 := xsect.vertices[i]
         p1 := xsect.vertices[i+1]
         theta0 := math.atan2(real(p0.y), real(p0.z))
         theta1 := math.atan2(real(p1.y), real(p1.z))
-        //log.debugf("p0= %v p1= %v theta0= %v theta1= %v", p0, p1, theta0, theta1)
+        //fmt.printfln("p0= %v p1= %v theta0= %.18e theta1= %.18e", p0, p1, theta0, theta1)
         if (theta0 <= theta) && (theta <= theta1) {
             pA = p0
             pB = p1
@@ -348,19 +350,42 @@ compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_S
     x := real(xsect.vertices[0].x)
     for i in 0..<len(rtg.r_bar) {
         theta := rtg.theta[i]
-        //log.debugf("looking for theta= %v", theta)
+        //fmt.printfln("looking for theta= %.6f", theta)
         pA, pB, ok := find_cross_section_points(xsect, theta)
+        w := -1.0 // Set negative as sentinel
         if !ok {
-            fmt.printfln("Error in compute_grid_2d: theta= %v", theta)
-            os.exit(1)
+            // Catch some end point cases
+            p0 := xsect.vertices[0]
+            theta0 := math.atan2(real(p0.y), real(p0.z))
+            if (theta0 - theta) < SMALL_THETA_TOL {
+                pA = p0
+                w = 0.0
+            }
+            p1 := xsect.vertices[len(xsect.vertices)-1]
+            theta1 := math.atan2(real(p1.y), real(p1.z))
+            if (theta - theta1) < SMALL_THETA_TOL {
+                pA = p1
+                w = 0.0
+            }
+
+            if w != 0.0 {
+                fmt.printfln("Error in compute_grid_2d: theta= %v", theta)
+                os.exit(1)
+            }
         }
-        theta0 := math.atan2(real(pA.y), real(pA.z))
-        theta1 := math.atan2(real(pB.y), real(pB.z))
-        w := (theta - theta0)/(theta1 - theta0)
-        r_b := (1 - w)*magnitude_yz(pA) + w*magnitude_yz(pB)
-        r := rtg.r_bar[i]*r_b
-        z := r*math.cos(theta)
-        y := r*math.sin(theta)
+        r_b, r, z, y : f64
+        if w != 0.0 {
+            theta0 := math.atan2(real(pA.y), real(pA.z))
+            theta1 := math.atan2(real(pB.y), real(pB.z))
+            w = (theta - theta0)/(theta1 - theta0)
+            r_b = (1 - w)*magnitude_yz(pA) + w*magnitude_yz(pB)
+        }
+        else {
+            r_b = magnitude_yz(pA)
+        }
+        r = rtg.r_bar[i]*r_b
+        z = r*math.cos(theta)
+        y = r*math.sin(theta)
         append(&(global_data.vertices), Vector3{complex(x, 0.0), complex(y, 0.0), complex(z, 0.0)})
         g.vertices[i] = VtxId(len(global_data.vertices)-1)
     }
