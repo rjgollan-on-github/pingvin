@@ -128,6 +128,7 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     str_result : string
     int_result : int
     float_result : f64
+    err_msg : string
 
     str_result, found = lua_get_optional_string(L, "grid2d_file")
     if found do cfg.grid2d_file = str_result
@@ -159,8 +160,10 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     int_result, found = lua_get_optional_integer(L, "print_every_n_slice")
     if found do cfg.print_every_n_slice = int_result
 
-    err_msg := "PVN-ERROR: 'no_cross_sections' not set in job input file. An integer is expected."
-    cfg.n_xsects = lua_get_integer(L, "no_cross_sections", err_msg)
+    if cfg.grid_parameterisation == .rtheta {
+        err_msg = "PVN-ERROR: 'no_cross_sections' not set in job input file. An integer is expected."
+        cfg.n_xsects = lua_get_integer(L, "no_cross_sections", err_msg)
+    }
 
     err_msg = "PVN-ERROR: 'dx' not set in job input file. A floating point value is expected."
     cfg.dx = lua_get_float(L, "dx", err_msg)

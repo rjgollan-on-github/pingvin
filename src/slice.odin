@@ -391,6 +391,25 @@ create_slice :: proc (x: f64, xsect: ^Cross_Section, slice: Slice_Id) {
     }
 }
 
+create_slice_from_rail :: proc (x: f64, rail: Bbox_rail, slice: Slice_Id) {
+    up_g := &global_data.up_grid
+    dn_g := &global_data.dn_grid
+    t := bezier_t_from_x(rail.bezier, x)
+    corner := bezier_eval(rail.bezier, t)
+    compute_grid_2d_from_bbox(dn_g, up_g, &global_data.bbox_grid, corner)
+    if (slice == 0) {
+        assemble_initial_upstream_interfaces(up_g^)
+    }
+    append(&global_data.slices, Slice{id=slice})
+    assemble_slice_cells_and_interfaces(&global_data.slices[slice], up_g.quads[:], dn_g.quads[:], slice)
+    if (slice == 0) {
+        apply_inflow(&global_data.slices[0])
+    }
+    else {
+        prep_slice(global_data.slices[slice], global_data.slices[slice-1])
+    }
+}
+
 update_primitives :: proc (slice: ^Slice) {
     for i in slice.first_cell..=slice.last_cell {
         global_data.cells[i].pqs = prim_from_cq(global_data.cells[i].cqs)

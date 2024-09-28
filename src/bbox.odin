@@ -50,7 +50,7 @@ read_bbox :: proc (filename : string) {
     return
 }
 
-create_bbox_rail :: proc (bbox : ^Bounding_box, upper_idx : int) -> (rail : Bbox_rail) {
+create_bbox_rail :: proc (rail : ^Bbox_rail, bbox : ^Bounding_box, upper_idx : int) {
     i := upper_idx - 1
     b0 := bbox.corners[i]
     b3 := bbox.corners[i+1]
@@ -60,5 +60,17 @@ create_bbox_rail :: proc (bbox : ^Bounding_box, upper_idx : int) -> (rail : Bbox
     rail.bezier = CubicBezier{b0, b1, b2, b3}
     rail.start = b0
     rail.end = b3
-    return rail
+}
+
+update_rail :: proc (rail: ^Bbox_rail, x: f64) {
+    idx_rail_end : int
+    if x > real(rail.end.x) {
+        for i in 1..<len(global_data.bbox.corners)-1 {
+            if x > real(global_data.bbox.corners[i].x) {
+                idx_rail_end = i + 1
+            }
+        }
+        create_bbox_rail(rail, &global_data.bbox, idx_rail_end)
+    }
+    return
 }

@@ -537,7 +537,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
         compute_bbox_grid(&global_data.bbox_grid, &up_grid, global_data.bbox.corners[0])
 
         // Create initial rail
-        curr_rail = create_bbox_rail(&global_data.bbox, 1)
+        create_bbox_rail(&curr_rail, &global_data.bbox, 1)
         loft_end = real(curr_rail.end.x)
         idx_loft_end = 1
     }
@@ -562,7 +562,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
                     }
                 }
                 loft_end = real(global_data.bbox.corners[idx_loft_end].x)
-                curr_rail = create_bbox_rail(&global_data.bbox, idx_loft_end)
+                create_bbox_rail(&curr_rail, &global_data.bbox, idx_loft_end)
             }
         }
         switch cfg.grid_parameterisation {

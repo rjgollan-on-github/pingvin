@@ -106,8 +106,6 @@ create_cross_section_loft :: proc (loft: ^Cross_Section_Loft, up, dn: ^Cross_Sec
     loft.end = real(dn.vertices[0].x)
 }
 
-
-
 create_cross_section :: proc (xsect: ^Cross_Section, loft: ^Cross_Section_Loft, x: f64) {
     for i in 0..<len(xsect.vertices) {
         t := bezier_t_from_x(loft.beziers[i], x)
