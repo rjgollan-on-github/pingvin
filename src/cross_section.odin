@@ -9,13 +9,13 @@ import "core:log"
 TYPICAL_NO_CROSS_SECTIONS := 50
 
 Cross_Section :: struct {
-    vertices: [dynamic]Vector3,
-    slopes: [dynamic]Vector3,
+    vertices: []Vector3,
+    slopes: []Vector3,
 }
 
 Cross_Section_Loft :: struct {
     end:     f64,
-    beziers: [dynamic]CubicBezier,
+    beziers: []CubicBezier,
 }
 
 CrossSectionError :: union {
@@ -54,7 +54,7 @@ read_cross_section :: proc (xsect: ^Cross_Section, filename: string, isect: int)
 }
 
 read_all_cross_sections :: proc (dir: string, n_xsects: int) -> (err: CrossSectionError) {
-    global_data.xsects = make([dynamic]Cross_Section, n_xsects)
+    global_data.xsects = make([]Cross_Section, n_xsects)
     for i in 0..<n_xsects {
         filename := fmt.tprintf("%s/xsect-%03d", dir, i)
         read_cross_section(&global_data.xsects[i], filename, i)
@@ -63,8 +63,8 @@ read_all_cross_sections :: proc (dir: string, n_xsects: int) -> (err: CrossSecti
 }
 
 allocate_cross_section :: proc (xsect: ^Cross_Section, n: int) {
-    xsect.vertices = make([dynamic]Vector3, n)
-    xsect.slopes = make([dynamic]Vector3, n)
+    xsect.vertices = make([]Vector3, n)
+    xsect.slopes = make([]Vector3, n)
 }
 
 delete_cross_section :: proc(xsect: ^Cross_Section) {
@@ -73,7 +73,7 @@ delete_cross_section :: proc(xsect: ^Cross_Section) {
 }
 
 allocate_cross_section_loft :: proc (loft: ^Cross_Section_Loft, n: int) {
-    loft.beziers = make([dynamic]CubicBezier, n)
+    loft.beziers = make([]CubicBezier, n)
 }
 
 delete_cross_section_loft :: proc(loft: ^Cross_Section_Loft) {

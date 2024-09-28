@@ -30,7 +30,12 @@ preview_grid :: proc (args: []string) -> (result: bool) {
     cfg := read_config_from_lua_file(opt.job_file)
     out_name := fmt.tprintf("%s.vtk", opt.out_file)
 
-    read_all_cross_sections(cfg.cross_section_dir, cfg.n_xsects)
+    switch cfg.grid_parameterisation {
+    case .rtheta:
+        read_all_cross_sections(cfg.cross_section_dir, cfg.n_xsects)
+    case .bbox:
+        read_bbox(cfg.bounding_box_file)
+    }
     generate_3d_grid(cfg)
     write_grid_3d_as_vtk(out_name)
 

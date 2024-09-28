@@ -12,6 +12,8 @@ import "core:math"
 
 SMALL_THETA_TOL := 1.0e-6
 
+Grid_parameterisation :: enum {rtheta, bbox}
+
 /*
  * Errors related to grids
  */
@@ -37,7 +39,7 @@ Boundary_2d :: struct {
  * Grid types:
  *   Grid_2d
  *   Grid_rtheta
- *   Grid_3d
+ *   Grid_bbox
  */
 
 // A 2D grid is used to represent planes.
@@ -57,9 +59,18 @@ Grid_2d :: struct {
 // This is used as a base grid for transformation from r-theta space
 // to z-y plane positions.
 Grid_rtheta :: struct {
-    r_bar: [dynamic]f64,
-    theta: [dynamic]f64,
+    r_bar: []f64,
+    theta: []f64,
 }
+
+// A grid defined by parameters (u,v) that vary between
+// 0 --> 1 with (1,1) located at the upper-right of
+// a bounding box for the grid.
+Grid_bbox :: struct {
+    u: []f64,
+    v: []f64,
+}
+
 
 /*
  * Grid management functions
@@ -310,13 +321,11 @@ argument_yz :: proc (v: Vector3) -> f64 {
 }
 
 find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB: Vector3, result: bool) {
-    //fmt.printfln("find: theta= %.18e", theta)
     for i in 0..<len(xsect.vertices)-1 {
         p0 := xsect.vertices[i]
         p1 := xsect.vertices[i+1]
         theta0 := math.atan2(real(p0.y), real(p0.z))
         theta1 := math.atan2(real(p1.y), real(p1.z))
-        //fmt.printfln("p0= %v p1= %v theta0= %.18e theta1= %.18e", p0, p1, theta0, theta1)
         if (theta0 <= theta) && (theta <= theta1) {
             pA = p0
             pB = p1
@@ -343,6 +352,19 @@ compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Secti
         // Now populate the rtheta grid
         rtg.r_bar[i] = r/r_b
         rtg.theta[i] = theta
+    }
+}
+
+compute_bbox_grid :: proc (bbg: ^Grid_bbox, g: ^Grid_2d, corner: Vector3) {
+    z_c := real(corner.z)
+    y_c := real(corner.y)
+    for vtxId, i in g.vertices {
+        v := global_data.vertices[vtxId]
+        z := real(v.z)
+        y := real(v.y)
+
+        bbg.u[i] = z/z_c
+        bbg.v[i] = y/y_c
     }
 }
 
@@ -391,8 +413,26 @@ compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_S
     }
     n_offset := VtxId(len(g.vertices))
     for i in 0..<len(g.quads) {
-    	g.quads[i] = g_prev.quads[i] + n_offset
+        g.quads[i] = g_prev.quads[i] + n_offset
     } 
+}
+
+compute_grid_2d_from_bbox :: proc (g, g_prev: ^Grid_2d, bbg: ^Grid_bbox, corner: Vector3) {
+    x := real(corner.x)
+    for i in 0..<len(bbg.u) {
+        u := bbg.u[i]
+        v := bbg.v[i]
+
+        z := u*real(corner.z)
+        y := v*real(corner.y)
+
+        append(&(global_data.vertices), Vector3{complex(x, 0.0), complex(y, 0.0), complex(z, 0.0)})
+        g.vertices[i] = VtxId(len(global_data.vertices)-1)
+    }
+    n_offset := VtxId(len(g.vertices))
+    for i in 0..<len(g.quads) {
+        g.quads[i] = g_prev.quads[i] + n_offset
+    }
 }
 
 /*
@@ -448,8 +488,16 @@ write_grid_3d_as_vtk :: proc (filename: string) {
  */
 
 generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
-    start := real(global_data.xsects[0].vertices[0].x)
-    end := real(global_data.xsects[len(global_data.xsects)-1].vertices[0].x)
+    start : f64
+    end : f64
+    switch cfg.grid_parameterisation {
+    case .rtheta:
+        start = real(global_data.xsects[0].vertices[0].x)
+        end = real(global_data.xsects[len(global_data.xsects)-1].vertices[0].x)
+    case .bbox:
+        start = real(global_data.bbox.corners[0].x)
+        end = real(global_data.bbox.corners[len(global_data.bbox.corners)-1].x)
+    }
     dx := cfg.dx
 
     // Read grid at first plane
@@ -462,43 +510,79 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
     allocate_grid_2d(&dn_grid, len(up_grid.vertices), len(up_grid.quads))
     defer delete_grid_2d(&up_grid)
     defer delete_grid_2d(&dn_grid)
-    
-    // Prepare (global) r-theta grid
-    allocate_rtheta_grid(len(up_grid.vertices))
-    compute_rtheta_grid(&global_data.rtheta_grid, &up_grid, &global_data.xsects[0])
 
-    // Create initial loft section
+    loft_end : f64
+    idx_loft_end : int
     curr_loft : Cross_Section_Loft
-    n_seg := len(global_data.xsects[0].vertices)
-    allocate_cross_section_loft(&curr_loft, n_seg)
-    defer delete_cross_section_loft(&curr_loft)
-
-    create_cross_section_loft(&curr_loft, &global_data.xsects[0], &global_data.xsects[1])
-    loft_end := real(global_data.xsects[1].vertices[0].x)
-    idx_loft_end := 1
-
     curr_xsect : Cross_Section
-    allocate_cross_section(&curr_xsect, n_seg)
-    defer delete_cross_section(&curr_xsect)
+    curr_rail : Bbox_rail
+
+    switch cfg.grid_parameterisation {
+    case .rtheta:
+        // Prepare (global) r-theta grid
+        allocate_rtheta_grid(len(up_grid.vertices))
+        compute_rtheta_grid(&global_data.rtheta_grid, &up_grid, &global_data.xsects[0])
+
+        // Create initial loft section
+        n_seg := len(global_data.xsects[0].vertices)
+        allocate_cross_section_loft(&curr_loft, n_seg)
+
+        create_cross_section_loft(&curr_loft, &global_data.xsects[0], &global_data.xsects[1])
+        loft_end = real(global_data.xsects[1].vertices[0].x)
+        idx_loft_end = 1
+
+        allocate_cross_section(&curr_xsect, n_seg)
+    case .bbox:
+        allocate_bbox_grid(len(up_grid.vertices))
+        compute_bbox_grid(&global_data.bbox_grid, &up_grid, global_data.bbox.corners[0])
+
+        // Create initial rail
+        curr_rail = create_bbox_rail(&global_data.bbox, 1)
+        loft_end = real(curr_rail.end.x)
+        idx_loft_end = 1
+    }
 
     for x := start + dx; x < (end + 0.1*dx); x += dx {
         // We might need to create a new loft
         if x > loft_end {
-            // Search for new loft end in cross sections, beginning from start
-            for i in 1..<len(global_data.xsects) {
-                if x > real(global_data.xsects[i].vertices[0].x) {
-                    idx_loft_end = i+1
-                } 
+            switch cfg.grid_parameterisation {
+            case .rtheta:
+                // Search for new loft end in cross sections, beginning from start
+                for i in 1..<len(global_data.xsects) {
+                    if x > real(global_data.xsects[i].vertices[0].x) {
+                        idx_loft_end = i+1
+                    }
+                }
+                loft_end = real(global_data.xsects[idx_loft_end].vertices[0].x)
+                create_cross_section_loft(&curr_loft, &global_data.xsects[idx_loft_end-1], &global_data.xsects[idx_loft_end])
+            case .bbox:
+                for i in 1..<len(global_data.bbox.corners) {
+                    if x > real(global_data.bbox.corners[i].x) {
+                        idx_loft_end = i+1
+                    }
+                }
+                loft_end = real(global_data.bbox.corners[idx_loft_end].x)
+                curr_rail = create_bbox_rail(&global_data.bbox, idx_loft_end)
             }
-            loft_end = real(global_data.xsects[idx_loft_end].vertices[0].x)
-            create_cross_section_loft(&curr_loft, &global_data.xsects[idx_loft_end-1], &global_data.xsects[idx_loft_end])
         }
-        create_cross_section(&curr_xsect, &curr_loft, x)
-        compute_grid_2d(&dn_grid, &up_grid, &global_data.rtheta_grid, &curr_xsect)
+        switch cfg.grid_parameterisation {
+        case .rtheta:
+            create_cross_section(&curr_xsect, &curr_loft, x)
+            compute_grid_2d(&dn_grid, &up_grid, &global_data.rtheta_grid, &curr_xsect)
+        case .bbox:
+            t := bezier_t_from_x(curr_rail.bezier, x)
+            corner := bezier_eval(curr_rail.bezier, t)
+            compute_grid_2d_from_bbox(&dn_grid, &up_grid, &global_data.bbox_grid, corner)
+        }
         add_3d_slice_of_hexes(&up_grid, &dn_grid)
 
         // Replace up_grid with dn_grid for next step.
         copy_grid_2d(&up_grid, &dn_grid)
+    }
+
+    if cfg.grid_parameterisation == .rtheta {
+        delete_cross_section_loft(&curr_loft)
+        delete_cross_section(&curr_xsect)
     }
     return true
 }
