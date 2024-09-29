@@ -53,7 +53,7 @@ We'll explain that in the installation instructions.
     export PINGVIN=$HOME/pingvin
     export PATH=$PINGVIN/inst:$PATH
 
-   [Macos] Set your environment variables in `.zshrc`
+[Macos] Set your environment variables in `.zshrc`
 
     export PINGVIN="$HOME/pingvin"
     export PATH="$PINGVIN/inst:$PATH"
