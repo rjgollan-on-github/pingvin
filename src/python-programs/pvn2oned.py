@@ -192,9 +192,20 @@ def compute_fluxes(slice):
 
 def stream_thrust_average(slice, area, xLoc):
     f_mass, f_xmom, f_ymom, f_zmom, f_energy = compute_fluxes(slice)
+    # set guesses for minimizer
+    rho = median(slice.cell_data['rho']); rho_min = min(slice.cell_data['rho']); rho_max = max(slice.cell_data['rho'])
+    T = median(slice.cell_data['T']); T_min = min(slice.cell_data['T']); T_max = max(slice.cell_data['T'])
+    u = median(slice.cell_data['xvel']); u_min = min(slice.cell_data['xvel']); u_max = max(slice.cell_data['xvel'])
+    v = median(slice.cell_data['yvel']); v_min = min(slice.cell_data['yvel']); v_max = max(slice.cell_data['yvel'])
+    w = median(slice.cell_data['zvel']); w_min = min(slice.cell_data['zvel']); w_max = max(slice.cell_data['zvel'])
 
     def f(x):
-        rho, T, u, v, w = x
+        rho_n, T_n, u_n, v_n, w_n = x
+        rho = rho_n*rho_max
+        T = T_n*T_max
+        u = u_n*u_max
+        v = v_n*(v_max - v_min + 1.0) + v_min
+        w = w_n*(w_max - w_min + 1.0) + w_min
         p = rho*R*T
         e = T*R/(GAMMA - 1.0)
         E = e + 0.5*(u*u + v*v + w*w)
@@ -207,27 +218,26 @@ def stream_thrust_average(slice, area, xLoc):
         err = fmass_err + fxmom_err + fymom_err + fzmom_err + fenergy_err
         return err
 
-    # set guesses for minimizer
-    rho = median(slice.cell_data['rho']); rho_min = min(slice.cell_data['rho']); rho_max = max(slice.cell_data['rho'])
-    T = median(slice.cell_data['T']); T_min = min(slice.cell_data['T']); T_max = max(slice.cell_data['T'])
-    u = median(slice.cell_data['xvel']); u_min = min(slice.cell_data['xvel']); u_max = max(slice.cell_data['xvel'])
-    v = median(slice.cell_data['yvel']); v_min = min(slice.cell_data['yvel']); v_max = max(slice.cell_data['yvel'])
-    w = median(slice.cell_data['zvel']); w_min = min(slice.cell_data['zvel']); w_max = max(slice.cell_data['zvel'])
-    x0 = [rho, T, u, v, w]
-    bounds = [(rho_min, rho_max), (T_min, T_max), (u_min, u_max), (v_min, v_max), (w_min, w_max)]
-    result = minimize(f, x0, method='Powell', bounds=bounds, options={'ftol':1.0e-5, 'xtol':1.0e-5})
+    x0 = [rho/rho_max, T/T_max, u/u_max, (v-v_min)/(v_max-v_min+1.0), (w-w_min)/(w_max-w_min+1.0)]
+    bounds = [(rho_min/rho_max, 1.0), (T_min/T_max, 1.0), (u_min/u_max, 1.0), (0.0, 1.0), (0.0, 1.0)]
+    result = minimize(f, x0, method='SLSQP', bounds=bounds, options={'ftol':1.0e-6})
 
     if not result.success:
         print(f"pvn2oned: Error when attempting to compute stream-thrust average for slice at x= {xLoc}.")
         print("pvn2oned: Median values of slice are: ")
-        print(f"  {rho=}  {e=}  {u=}  {v=}  {w=}")
+        print(f"  {rho=}  {T=}  {u=}  {v=}  {w=}")
         print("pvn2oned: Best estimate from minimizer: ")
-        print(f"  {result.x[0]}  {result.x[1]}  {result.x[2]}  {result.x[3]}  {result.x[4]}")
+        print(f"  {result.x[0]*rho_max}  {result.x[1]*T_max}  {result.x[2]*u_max}  {result.x[3]*(v_max - v_min + 1.0) + v_min}  {result.x[4]*(w_max - w_min + 1.0) + w_min}")
         print("pvn2oned: Exiting.")
         sys.exit(1)
     
     avg = dict.fromkeys(Fields, 0.0)
-    rho, T, u, v, w, = result.x
+    rho_n, T_n, u_n, v_n, w_n = result.x
+    rho = rho_n*rho_max
+    T = T_n*T_max
+    u = u_n*u_max
+    v = v_n*(v_max - v_min + 1.0) + v_min
+    w = w_n*(w_max - w_min + 1.0) + w_min
     avg['rho'] = rho
     p = rho*R*T           
     avg['p'] = p
