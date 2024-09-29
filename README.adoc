@@ -21,6 +21,11 @@ You will need:
 * Python scipy package
 * Python click package
 
+Additionaly, on macos, install lzlib via brew:
+
+* brew install lzlib
+
+
 === Odin compiler
 
 Please follow the instructions at:
@@ -43,10 +48,16 @@ We'll explain that in the installation instructions.
    > cd pingvin
    > make install
 
-3. Set your environment variables in a `.bashrc` (or equivalent file for your platform)
+3. [Linux] Set your environment variables in `.bashrc`
 
     export PINGVIN=$HOME/pingvin
     export PATH=$PINGVIN/inst:$PATH
+
+   [Macos] Set your environment variables in `.zshrc`
+
+    export PINGVIN="$HOME/pingvin"
+    export PATH="$PINGVIN/inst:$PATH"
+    export LIBRARY_PATH="/opt/homebrew/opt/zlib/lib"
 
 4. Set up a Python virtual environment and install required packages
 
