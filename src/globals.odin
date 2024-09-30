@@ -30,6 +30,8 @@ Pvn_Global_Data :: struct {
     slices:             [dynamic]Slice,
     up_grid:                     Grid_2d,
     dn_grid:                     Grid_2d,
+    // Diagnostics
+    cell_tracer:                 Cell_tracer,
 }
 
 global_data : Pvn_Global_Data

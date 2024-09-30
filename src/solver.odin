@@ -2,7 +2,7 @@ package pingvin
 
 import "core:fmt"
 import "core:os"
-import "core:math/rand"
+import "core:math"
 
 prep_solver :: proc () {
     cfg := globals.cfg
@@ -85,6 +85,22 @@ run_solver :: proc() {
         if (int(slice) % print_every_n_slice) == 0 {
             fmt.printfln("pvn: [slice-%03d @ x= %.6f] -- CONVERGED\n", slice, x-0.5*dx)
         }
+        // Collect some diagnostics, if needed
+        if cfg.cell_trace_id >= 0 {
+            cell_id := cfg.cell_trace_id + int(slice)*global_data.slices[0].n_cells
+            cell := global_data.cells[cell_id]
+            append(&global_data.cell_tracer.vols, real(cell.volume))
+            append(&global_data.cell_tracer.ctrs, cell.centroid)
+            pq : [Primitive_Quantities]f64
+            for q in Primitive_Quantities do pq[q] = real(cell.pqs[q])
+            append(&global_data.cell_tracer.pqs, pq)
+            speed := math.sqrt(real(cell.pqs[.xvel])*real(cell.pqs[.xvel]) +
+                real(cell.pqs[.yvel])*real(cell.pqs[.yvel]) +
+                real(cell.pqs[.zvel])*real(cell.pqs[.zvel]))
+            a := math.sqrt(real(globals.gamma)*real(cell.pqs[.p])/real(cell.pqs[.rho]))
+            M := speed / a
+            append(&global_data.cell_tracer.Ms, M)
+        }
         // Get up grid ready for next slice
         copy_grid_2d(&global_data.up_grid, &global_data.dn_grid)
         slice += 1
@@ -98,5 +114,8 @@ run_solver :: proc() {
 
 post_solver :: proc () {
     write_grid_and_field()
+    if globals.cfg.cell_trace_id >= 0 {
+        write_cell_trace("pvnsim/diagnostic-cell-trace.data", global_data.cell_tracer)
+    }
 }
 

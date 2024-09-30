@@ -28,6 +28,8 @@ Config :: struct {
     max_gmres_iterations:        int,
     perturbation_size:           f64,
     gmres_relative_residual:     f64,
+    // Diagnostics
+    cell_trace_id :              int,
 }
 
 defaults :: `
@@ -46,6 +48,7 @@ slice_change_in_update = 1.0e-6
 max_gmres_iterations = 10
 perturbation_size = 1.0e-250
 gmres_relative_residual = 1.0e-3
+diagnostic_cell_trace = -1
 `
 
 lua_get_optional_string :: proc (L: ^lua.State, field: cstring) -> (result: string, found: bool) {
@@ -206,6 +209,9 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
 
     float_result, found = lua_get_optional_float(L, "gmres_relative_residual")
     if found do cfg.gmres_relative_residual = float_result
+
+    int_result, found = lua_get_optional_integer(L, "diagnostic_cell_trace")
+    if found do cfg.cell_trace_id = int_result
 
     return cfg
 }
