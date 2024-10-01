@@ -1,16 +1,23 @@
 # Author: RJG
 # Date: 2024-09-22
+#
+# History:
+#   2024-10-01 -- Change from conserved mass-momentum-energy to
+#                 conserved mass-energy-entropy
+#
 
 import click
 import pyvista as pv
-from numpy import median
+from numpy import median, mean
 import sys
-from math import sqrt
-from scipy.optimize import minimize
+from math import sqrt, log
+from scipy.optimize import root_scalar
 
 VTUFILE = "pvnsim/flowfield.vtu"
 GAMMA = 1.4
 R = 287.0
+T_ref = 298.15 # K
+p_ref = 101.325e3 # Pa
 
 Fields = ['xvel', 'yvel', 'zvel', 'Mach',
           'p', 'T', 'rho']
@@ -53,7 +60,7 @@ def run(xLoc, nSlices, outfile):
         slice = mesh.slice(origin=(xLoc, 0.0, 0.0), normal=(1.0, 0.0, 0.0))
         # Compute GAMMA and R from information slice
         set_gamma_and_r(slice)
-        area_avg, mass_flow_avg, st_avg, area = compute_slice_averages(slice, xLoc)
+        area_avg, mass_flow_avg, cmes_avg, area = compute_slice_averages(slice, xLoc)
 
         
         print(f"# Averaged properties at x = {xLoc:.3f}")
@@ -62,8 +69,8 @@ def run(xLoc, nSlices, outfile):
         print(f"area-slice:      [{area:.6e}, 'm^2']")
         print(f"number-of-cells:  {slice.n_cells}")
         print("")
-        print("stream-thrust-average:")
-        print_avg(st_avg)
+        print("conserved-mass-energy-entropy-average:")
+        print_avg(cmes_avg)
         print("")
         print("mass-flow-weighted-average:")
         print_avg(mass_flow_avg)
@@ -74,13 +81,15 @@ def run(xLoc, nSlices, outfile):
 
     if doSlicing:
         slices = mesh.slice_along_axis(n=nSlices, axis="x", tolerance=0.001)
-        vars = ('p', 'T', 'rho', 'Mach', 'xvel', 'yvel', 'zvel')
+        vars = ('p', 'T', 'rho', 'Mach', 'xvel', 'p0', 'T0', 'rho0')
 
         with open(f"{outfile}-area-avg.data", "w") as fa, \
              open(f"{outfile}-mass-flow-avg.data", "w") as fm, \
-             open(f"{outfile}-stream-thrust-avg.data", "w") as fs:
+             open(f"{outfile}-cmes-avg.data", "w") as fs:
 
-            header = "x area p T rho Mach xvel yvel zvel\n"
+            header = "x area "
+            for v in vars: header += v + " "
+            header += "\n"
             fa.write(header)
             fm.write(header)
             fs.write(header)
@@ -91,7 +100,7 @@ def run(xLoc, nSlices, outfile):
                 x = slice.get_cell(0).center[0]
                 print(f"-- slice-{i:03d} @ x={x:.3f} --")
                 print("     computing averaged properties")
-                area_avg, mass_flow_avg, st_avg, area = compute_slice_averages(slice, xLoc)
+                area_avg, mass_flow_avg, cmes_avg, area = compute_slice_averages(slice, xLoc)
                 x_area_str = f"{x:.6e} {area:.6e} "
                 fa.write(x_area_str)
                 fm.write(x_area_str)
@@ -99,7 +108,7 @@ def run(xLoc, nSlices, outfile):
                 for v in vars:
                     fa.write(f"{area_avg[v]:.6e} ")
                     fm.write(f"{mass_flow_avg[v]:.6e} ")
-                    fs.write(f"{st_avg[v]:.6e} ")
+                    fs.write(f"{cmes_avg[v]:.6e} ")
                 fa.write("\n")
                 fm.write("\n")
                 fs.write("\n")
@@ -109,13 +118,14 @@ def run(xLoc, nSlices, outfile):
     return
 
 def print_avg(avg):
-    print(f"  - pressure:       [{avg['p']:.3e}, 'Pa']")
-    print(f"  - temperature:    [{avg['T']:.3e}, 'K']")
-    print(f"  - density:        [{avg['rho']:.3e}, 'kg/m^3']")
-    print(f"  - Mach-number:    [{avg['Mach']:.3e}, '-']")
-    print(f"  - x-velocity:     [{avg['xvel']:.3e}, 'm/s']")
-    print(f"  - y-velocity:     [{avg['yvel']:.3e}, 'm/s']")
-    print(f"  - z-velocity:     [{avg['zvel']:.3e}, 'm/s']")
+    print(f"  - pressure:           [ {avg['p']:.3e}, 'Pa'     ]")
+    print(f"  - temperature:        [ {avg['T']:.3e}, 'K'      ]")
+    print(f"  - density:            [ {avg['rho']:.3e}, 'kg/m^3' ]")
+    print(f"  - Mach-number:        [ {avg['Mach']:.3e}, '-'      ]")
+    print(f"  - x-velocity:         [ {avg['xvel']:.3e}, 'm/s'    ]")
+    print(f"  - total-pressure:     [ {avg['p0']:.3e}, 'Pa'     ]")
+    print(f"  - total-temperature:  [ {avg['T0']:.3e}, 'K'      ]")
+    print(f"  - total-density:      [ {avg['rho0']:.3e}, 'kg/m^3' ]")
     return
 
 def set_gamma_and_r(slice):
@@ -130,12 +140,44 @@ def set_gamma_and_r(slice):
     print(f"# GAMMA set: \t {GAMMA:.2f}")
     print(f"# R set: \t {R:.2f}")
     return
+
+# stagnation expressions taken from gdtk.ideal_gas_flow
+
+def T0_T(M, g=1.4):
+    """
+    Total to static temperature ratio for an adiabatic flow.
+
+    M: Mach number
+    g: ratio of specific heats
+    Returns: T0/T
+    """
+    return 1.0 + (g - 1.0) * 0.5 * M**2
+
+def p0_p(M, g=1.4):
+    """
+    Total to static pressure ratio for an isentropic flow.
+
+    M: Mach number
+    g: ratio of specific heats
+    Returns: p0/p
+    """
+    return (T0_T(M, g))**( g / (g - 1.0) )
+
+def r0_r(M, g=1.4):
+    """
+    Stagnation to free-stream density ratio for an isentropic flow.
+
+    M: Mach number
+    g: ratio of specific heats
+    Returns: r0/r
+    """
+    return (T0_T(M, g))**(1.0 / (g - 1.0))
         
 def compute_slice_averages(slice, xLoc):
     area_avg, area = area_weighted_average(slice)
     mass_flow_avg = mass_flow_weighted_average(slice)
-    st_avg = stream_thrust_average(slice, area, xLoc)
-    return area_avg, mass_flow_avg, st_avg, area
+    cmes_avg = cmes_average(slice, area, xLoc)
+    return area_avg, mass_flow_avg, cmes_avg, area
     
 
 def area_weighted_average(slice):
@@ -149,6 +191,9 @@ def area_weighted_average(slice):
     for k in avg.keys():
         avg[k] /= area
         avg[k] = float(avg[k])
+    avg['p0'] = avg['p']*p0_p(avg['Mach'], GAMMA)
+    avg['T0'] = avg['T']*T0_T(avg['Mach'], GAMMA)
+    avg['rho0'] = avg['rho']*r0_r(avg['Mach'], GAMMA)
     return avg, area
 
 def mass_flow_weighted_average(slice):
@@ -165,14 +210,15 @@ def mass_flow_weighted_average(slice):
     for k in avg.keys():
         avg[k] /= f_mass
         avg[k] = float(avg[k])
+    avg['p0'] = avg['p']*p0_p(avg['Mach'], GAMMA)
+    avg['T0'] = avg['T']*T0_T(avg['Mach'], GAMMA)
+    avg['rho0'] = avg['rho']*r0_r(avg['Mach'], GAMMA)
     return avg
 
 def compute_fluxes(slice):
     f_mass = 0.0
-    f_xmom = 0.0
-    f_ymom = 0.0
-    f_zmom = 0.0
     f_energy = 0.0
+    f_entropy = 0.0
     for i in range(slice.n_cells):
         dA = slice.cell_data['area-zy'][i]
         rho = slice.cell_data['rho'][i]
@@ -181,84 +227,61 @@ def compute_fluxes(slice):
         w = slice.cell_data['zvel'][i]
         p = slice.cell_data['p'][i]
         e = slice.cell_data['e'][i]
+        T = slice.cell_data['T'][i]
+        h = e + p/rho
         ke = 0.5*(u*u + v*v + w*w)
-        E = e + ke
-        f_mass += rho*u*dA
-        f_xmom += (rho*u*u + p)*dA
-        f_ymom += (rho*u*v)*dA
-        f_zmom += (rho*u*w)*dA
-        f_energy += (rho*u*E + p*u)*dA
-    return (f_mass, f_xmom, f_ymom, f_zmom, f_energy)
+        h0 = h + ke
+        s = ((GAMMA*R)/(GAMMA-1.0))*log(T/T_ref) - R*log(p/p_ref)
+        f_mass += (rho*u)*dA
+        f_energy += (rho*u*h0)*dA
+        f_entropy += (rho*u*s)*dA
+    return (f_mass, f_energy, f_entropy)
 
-def stream_thrust_average(slice, area, xLoc):
-    f_mass, f_xmom, f_ymom, f_zmom, f_energy = compute_fluxes(slice)
-    # set guesses for minimizer
-    rho = median(slice.cell_data['rho']); rho_min = min(slice.cell_data['rho']); rho_max = max(slice.cell_data['rho'])
-    T = median(slice.cell_data['T']); T_min = min(slice.cell_data['T']); T_max = max(slice.cell_data['T'])
-    u = median(slice.cell_data['xvel']); u_min = min(slice.cell_data['xvel']); u_max = max(slice.cell_data['xvel'])
-    v = median(slice.cell_data['yvel']); v_min = min(slice.cell_data['yvel']); v_max = max(slice.cell_data['yvel'])
-    w = median(slice.cell_data['zvel']); w_min = min(slice.cell_data['zvel']); w_max = max(slice.cell_data['zvel'])
+def cmes_average(slice, area, xLoc):
+    f_mass, f_energy, f_entropy = compute_fluxes(slice)
+    h0 = f_energy/f_mass
+    def fzero(T):
+        h = R*T*(1./(GAMMA-1.) + 1.)
+        u = sqrt(2.*(h0 - h))
+        p = f_mass*R*T/(u*area)
+        F = (f_entropy/f_mass) - (((GAMMA*R)/(GAMMA-1.))*log(T/T_ref) - R*log(p/p_ref))
+        return F
 
-    def f(x):
-        rho_n, T_n, u_n, v_n, w_n = x
-        rho = rho_n*rho_max
-        T = T_n*T_max
-        u = u_n*u_max
-        v = v_n*(v_max - v_min + 1.0) + v_min
-        w = w_n*(w_max - w_min + 1.0) + w_min
-        p = rho*R*T
-        e = T*R/(GAMMA - 1.0)
-        E = e + 0.5*(u*u + v*v + w*w)
-        # Compute errors
-        fmass_err = abs(f_mass - rho*u*area)/(abs(f_mass))
-        fxmom_err = abs(f_xmom - (rho*u*u + p)*area)/(abs(f_xmom))
-        fymom_err = abs(f_ymom - (rho*u*v)*area)/(abs(f_ymom))
-        fzmom_err = abs(f_zmom - (rho*u*w)*area)/(abs(f_zmom))
-        fenergy_err = abs(f_energy - (rho*u*E + p*u)*area)/(abs(f_energy))
-        err = fmass_err + fxmom_err + fymom_err + fzmom_err + fenergy_err
-        return err
+    x0 = median(slice.cell_data['T'])
+    x1 = mean(slice.cell_data['T'])
+    sol = root_scalar(fzero, x0=x0, x1=x1, xtol=1.0e-3, rtol=1.0e-6)
 
-    x0 = [rho/rho_max, T/T_max, u/u_max, (v-v_min)/(v_max-v_min+1.0), (w-w_min)/(w_max-w_min+1.0)]
-    bounds = [(rho_min/rho_max, 1.0), (T_min/T_max, 1.0), (u_min/u_max, 1.0), (0.0, 1.0), (0.0, 1.0)]
-    result = minimize(f, x0, method='SLSQP', bounds=bounds, options={'ftol':1.0e-6})
+    if not sol.converged:
+        print(f"pvn2oned: Difficulty finding iterative solution for temperature at x= {xLoc}.")
+        print(f"pvn2oned: median T= {x0}, mean T = {x1}, sonic T= {T_sonic}")
+        print("pvn2oned: Exiting.")
+        sys.exit(1)
 
-    if not result.success:
-        print(f"pvn2oned: Error when attempting to compute stream-thrust average for slice at x= {xLoc}.")
-        print("pvn2oned: Median values of slice are: ")
-        print(f"  {rho=}  {T=}  {u=}  {v=}  {w=}")
-        print("pvn2oned: Best estimate from minimizer: ")
-        print(f"  {result.x[0]*rho_max}  {result.x[1]*T_max}  {result.x[2]*u_max}  {result.x[3]*(v_max - v_min + 1.0) + v_min}  {result.x[4]*(w_max - w_min + 1.0) + w_min}")
+    T = sol.root
+    # Check T < T_sonic
+    h = R*T*(1./(GAMMA-1.) + 1.)
+    T_sonic = 2.*(h0 - h)/(GAMMA*R)
+    if T > T_sonic:
+        print(f"pvn2oned: Iterative solve found temperature value above sonic temperature at x = {xLoc}.")
+        print("pvn2oned: This indicates a (predominantly) subsonic flow field.")
         print("pvn2oned: Exiting.")
         sys.exit(1)
     
+    # now compute averaged properties
+    u = sqrt(2.*(h0 - h))
+    p = f_mass*R*T/(u*area)
+    rho = p/(R*T)
+    a = sqrt(GAMMA*R*T)
     avg = dict.fromkeys(Fields, 0.0)
-    rho_n, T_n, u_n, v_n, w_n = result.x
-    rho = rho_n*rho_max
-    T = T_n*T_max
-    u = u_n*u_max
-    v = v_n*(v_max - v_min + 1.0) + v_min
-    w = w_n*(w_max - w_min + 1.0) + w_min
     avg['rho'] = rho
-    p = rho*R*T           
     avg['p'] = p
     avg['T'] = T
     avg['xvel'] = u
-    avg['yvel'] = v
-    avg['zvel'] = w
-    speed = sqrt(u*u + v*v + w*w)
-    a = sqrt(GAMMA*R*T)
-    avg['Mach'] = speed/a
+    avg['Mach'] = u/a
+    avg['p0'] = avg['p']*p0_p(avg['Mach'], GAMMA)
+    avg['T0'] = avg['T']*T0_T(avg['Mach'], GAMMA)
+    avg['rho0'] = avg['rho']*r0_r(avg['Mach'], GAMMA)
     return avg
-    
-    
-    
-    
-
-    
-        
-        
-    
-
 
 if __name__ == '__main__':
     run()
