@@ -16,6 +16,7 @@ of the support tools rely on Python packages.
 You will need:
 
 * An Odin compiler
+* Python vtk package
 * Python pyvista package
 * Python gmsh package (or another way to generate a 2D quad mesh)
 * Python scipy package
@@ -63,6 +64,7 @@ We'll explain that in the installation instructions.
 
    > python(3) -m venv py-env
    > source py-env/bin/activate
+   > pip install vtk
    > pip install pyvista
    > pip install gmsh
    > pip install scipy

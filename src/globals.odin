@@ -18,6 +18,7 @@ Pvn_Global_Data :: struct {
     quads:              [dynamic]Quad,
     rtheta_grid:                 Grid_rtheta,
     bbox_grid:                   Grid_bbox,
+    mvc_grid:                    Grid_mvc,
     wall_boundary:               Boundary_2d,
     symm_boundary:               Boundary_2d,
     // Elements related to 3D simulation domain
@@ -61,6 +62,20 @@ delete_bbox :: proc() {
     delete(global_data.bbox.slopes)
 }
 
+allocate_mvc_grid :: proc (n_points_grid, n_points_xsect: int) {
+    global_data.mvc_grid.lambda = make([][]f64, n_points_grid)
+    for i in 0..<n_points_grid {
+        global_data.mvc_grid.lambda[i] = make([]f64, n_points_xsect + 1) // +1 for origin as part of polygon
+    }
+}
+
+delete_mvc_grid :: proc() {
+    for i in 0..<len(global_data.mvc_grid.lambda) {
+        delete(global_data.mvc_grid.lambda[i])
+    }
+    delete(global_data.mvc_grid.lambda)
+}
+
 delete_cross_sections :: proc () {
     for i in 0..<len(global_data.xsects) {
         delete(global_data.xsects[i].vertices)
@@ -85,5 +100,8 @@ delete_global_data :: proc() {
     case .bbox:
         delete_bbox_grid()
         delete_bbox()
+    case .mvc:
+        delete_mvc_grid()
+        delete_cross_sections()
     }
 }

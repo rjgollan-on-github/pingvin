@@ -7,7 +7,7 @@ import "core:math"
 prep_solver :: proc () {
     cfg := globals.cfg
     switch cfg.grid_parameterisation {
-    case .rtheta:
+    case .rtheta, .mvc:
         fmt.println("Reading cross sections")
         read_all_cross_sections(cfg.cross_section_dir, cfg.n_xsects)
         globals.start = real(global_data.xsects[0].vertices[0].x)
@@ -34,6 +34,10 @@ prep_solver :: proc () {
     case .bbox:
         allocate_bbox_grid(len(global_data.up_grid.vertices))
         compute_bbox_grid(&global_data.bbox_grid, &global_data.up_grid, global_data.bbox.corners[0])
+    case .mvc:
+        // Prepare (global) mvc grid
+        allocate_mvc_grid(len(global_data.up_grid.vertices), len(global_data.xsects[0].vertices))
+        compute_mvc_grid(&global_data.mvc_grid, &global_data.up_grid, &global_data.xsects[0])
     }
 
     // Prepare GMRES workspace
@@ -52,7 +56,7 @@ run_solver :: proc() {
     curr_rail : Bbox_rail
 
     switch cfg.grid_parameterisation {
-    case .rtheta:
+    case .rtheta, .mvc:
         // Create initial loft section
         n_seg := len(global_data.xsects[0].vertices)
         allocate_cross_section_loft(&curr_loft, n_seg)
@@ -66,8 +70,8 @@ run_solver :: proc() {
 
     for x := globals.start + dx; x < (globals.end + 0.1*dx); x += dx {
         // Prepare slice
-        switch cfg.grid_parameterisation {
-        case .rtheta:
+        #partial switch cfg.grid_parameterisation {
+        case .rtheta, .mvc:
             update_loft(&curr_loft, x)
             create_cross_section(&curr_xsect, &curr_loft, x)
             create_slice(x, &curr_xsect, slice)
@@ -106,7 +110,8 @@ run_solver :: proc() {
         slice += 1
     }
 
-    if cfg.grid_parameterisation == .rtheta {
+    #partial switch cfg.grid_parameterisation {
+    case .rtheta, .mvc:
         delete_cross_section_loft(&curr_loft)
         delete_cross_section(&curr_xsect)
     }

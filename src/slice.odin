@@ -377,7 +377,12 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
 create_slice :: proc (x: f64, xsect: ^Cross_Section, slice: Slice_Id) {
     up_g := &global_data.up_grid
     dn_g := &global_data.dn_grid
-    compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
+    #partial switch globals.cfg.grid_parameterisation {
+    case .rtheta:
+        compute_grid_2d(dn_g, up_g, &global_data.rtheta_grid, xsect)
+    case .mvc:
+        compute_grid_2d_from_mvc(dn_g, up_g, &global_data.mvc_grid, xsect)
+    }
     if (slice == 0) {
         assemble_initial_upstream_interfaces(up_g^)
     }

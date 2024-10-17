@@ -31,7 +31,7 @@ preview_grid :: proc (args: []string) -> (result: bool) {
     out_name := fmt.tprintf("%s.vtk", opt.out_file)
 
     switch cfg.grid_parameterisation {
-    case .rtheta:
+    case .rtheta, .mvc:
         read_all_cross_sections(cfg.cross_section_dir, cfg.n_xsects)
     case .bbox:
         read_bbox(cfg.bounding_box_file)

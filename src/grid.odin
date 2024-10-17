@@ -10,9 +10,10 @@ import "core:log"
 import "core:math"
 
 
-SMALL_THETA_TOL := 1.0e-6
+SMALL_THETA_TOL :: 1.0e-6
+VEC_TOL :: 1.0e-9
 
-Grid_parameterisation :: enum {rtheta, bbox}
+Grid_parameterisation :: enum {rtheta, bbox, mvc}
 
 /*
  * Errors related to grids
@@ -69,6 +70,11 @@ Grid_rtheta :: struct {
 Grid_bbox :: struct {
     u: []f64,
     v: []f64,
+}
+
+// A grid defined by mean value coordinates
+Grid_mvc :: struct {
+    lambda: [][]f64,
 }
 
 
@@ -368,6 +374,86 @@ compute_bbox_grid :: proc (bbg: ^Grid_bbox, g: ^Grid_2d, corner: Vector3) {
     }
 }
 
+compute_mvc_grid :: proc (mvcg: ^Grid_mvc, g: ^Grid_2d, xsect: ^Cross_Section) {
+    // Initialise vertices of polygon (adding origin as point in polygon)
+    vs : []Vector3
+    vs = make([]Vector3, len(xsect.vertices) + 1)
+    defer delete(vs)
+    for i in 0..<len(xsect.vertices) do vs[i] = xsect.vertices[i]
+    vs[len(xsect.vertices)] = Vector3{xsect.vertices[0].x, complex(0.0, 0.0), complex(0.0, 0.0)}
+    // Make some working storage for mvc, but then we'll delete.
+    ws, rs, as : []f64
+    ws = make([]f64, len(xsect.vertices) + 1)
+    defer delete(ws)
+    rs = make([]f64, len(xsect.vertices) + 1)
+    defer delete(rs)
+    as = make([]f64, len(xsect.vertices) + 1)
+    defer delete(as)
+
+    vec_approx_equal :: proc (a, b: Vector3) -> bool {
+        if real(magnitude(a - b)) <= VEC_TOL {
+            return true
+        }
+        return false
+    }
+
+    for vtxId, i in g.vertices {
+        v := global_data.vertices[vtxId]
+        // Check if v is in fact one of vs
+        j_found := -1
+        for p, j in vs {
+            if vec_approx_equal(v, p) {
+                j_found = j
+            }
+        }
+        if j_found >= 0 { // it is in fact special: a vertex on a polygon point
+            mvcg.lambda[i][j_found] = 1.0
+        }
+        else {
+            compute_mvc(v, vs, mvcg.lambda[i], ws, rs, as)
+        }
+    }
+}
+
+compute_mvc :: proc (v: Vector3, vs: []Vector3, mvc, ws, rs, as: []f64) {
+    // 1. Compute rs
+    dist :: proc (v, vi: Vector3) -> f64 {
+        v_vi_y := real(v.y - vi.y)
+        v_vi_z := real(v.z - vi.z)
+        return math.sqrt(v_vi_y*v_vi_y + v_vi_z*v_vi_z)
+    }
+    for i in 0..<len(vs) do rs[i] = dist(v, vs[i])
+
+    // 2. Compute as
+    angle :: proc (a, b: Vector3) -> f64 {
+        az := real(a.z)
+        ay := real(a.y)
+        bz := real(b.z)
+        by := real(b.y)
+        return math.atan2(az*by - ay*bz, az*bz + ay*by)
+    }
+    for i in 0..<len(vs)-1 do as[i] = angle(vs[i] - v, vs[i+1] - v)
+    // special cyclical case at end
+    as[len(vs)-1] = angle(vs[len(vs)-1] - v, vs[0] - v)
+
+    // 3. Compute ws
+    weight :: proc (a_im1, a_i, r_i: f64) -> f64 {
+        return (1./r_i)*(math.tan(a_im1/2.) + math.tan(a_i/2))
+    }
+    // Special cyclical case at 0
+    ws[0] = weight(as[len(as)-1], as[0], rs[0])
+    for i in 1..<len(vs) do ws[i] = weight(as[i-1], as[i], rs[i])
+
+    wt_sum := 0.0
+    for i in 0..<len(ws) do wt_sum += ws[i]
+
+    // 4. Compute normalised weights
+    for i in 0..<len(ws) do mvc[i] = ws[i]/wt_sum
+
+    return
+}
+
+
 compute_grid_2d :: proc (g, g_prev: ^Grid_2d, rtg: ^Grid_rtheta, xsect: ^Cross_Section) {
     x := real(xsect.vertices[0].x)
     for i in 0..<len(rtg.r_bar) {
@@ -435,6 +521,30 @@ compute_grid_2d_from_bbox :: proc (g, g_prev: ^Grid_2d, bbg: ^Grid_bbox, corner:
     }
 }
 
+compute_grid_2d_from_mvc :: proc (g, g_prev: ^Grid_2d, mvcg: ^Grid_mvc, xsect: ^Cross_Section) {
+    x := xsect.vertices[0].x
+    // Initialise vertices of polygon (adding origin as point in polygon)
+    vs : []Vector3
+    vs = make([]Vector3, len(xsect.vertices) + 1)
+    defer delete(vs)
+    for i in 0..<len(xsect.vertices) do vs[i] = xsect.vertices[i]
+    vs[len(xsect.vertices)] = {x, complex(0.0, 0.0), complex(0.0, 0.0)}
+
+    for i in 0..<len(mvcg.lambda) {
+        v := Vector3{x, complex(0.0, 0.0), complex(0.0, 0.0)}
+        for j in 0..<len(mvcg.lambda[i]) {
+            v += mvcg.lambda[i][j] * vs[j]
+        }
+
+        append(&(global_data.vertices), Vector3{x, v.y, v.z})
+        g.vertices[i] = VtxId(len(global_data.vertices)-1)
+    }
+    n_offset := VtxId(len(g.vertices))
+    for i in 0..<len(g.quads) {
+        g.quads[i] = g_prev.quads[i] + n_offset
+    }
+}
+
 /*
  * Functions for building 3D cells from 2D grid planes.
  */
@@ -491,7 +601,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
     start : f64
     end : f64
     switch cfg.grid_parameterisation {
-    case .rtheta:
+    case .rtheta, .mvc:
         start = real(global_data.xsects[0].vertices[0].x)
         end = real(global_data.xsects[len(global_data.xsects)-1].vertices[0].x)
     case .bbox:
@@ -540,15 +650,29 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
         create_bbox_rail(&curr_rail, &global_data.bbox, 1)
         loft_end = real(curr_rail.end.x)
         idx_loft_end = 1
+    case .mvc:
+        // Prepare (global) mvc grid
+        allocate_mvc_grid(len(up_grid.vertices), len(global_data.xsects[0].vertices))
+        compute_mvc_grid(&global_data.mvc_grid, &up_grid, &global_data.xsects[0])
+
+        // Create initial loft section
+        n_seg := len(global_data.xsects[0].vertices)
+        allocate_cross_section_loft(&curr_loft, n_seg)
+
+        create_cross_section_loft(&curr_loft, &global_data.xsects[0], &global_data.xsects[1])
+        loft_end = real(global_data.xsects[1].vertices[0].x)
+        idx_loft_end = 1
+
+        allocate_cross_section(&curr_xsect, n_seg)
     }
 
     for x := start + dx; x < (end + 0.1*dx); x += dx {
         // We might need to create a new loft
         if x > loft_end {
             switch cfg.grid_parameterisation {
-            case .rtheta:
+            case .rtheta, .mvc:
                 // Search for new loft end in cross sections, beginning from start
-                for i in 1..<len(global_data.xsects) {
+                for i in 1..<len(global_data.xsects)-1 {
                     if x > real(global_data.xsects[i].vertices[0].x) {
                         idx_loft_end = i+1
                     }
@@ -573,6 +697,9 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
             t := bezier_t_from_x(curr_rail.bezier, x)
             corner := bezier_eval(curr_rail.bezier, t)
             compute_grid_2d_from_bbox(&dn_grid, &up_grid, &global_data.bbox_grid, corner)
+        case .mvc:
+            create_cross_section(&curr_xsect, &curr_loft, x)
+            compute_grid_2d_from_mvc(&dn_grid, &up_grid, &global_data.mvc_grid, &curr_xsect)
         }
         add_3d_slice_of_hexes(&up_grid, &dn_grid)
 

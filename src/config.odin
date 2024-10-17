@@ -144,11 +144,15 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
         else if str_result == "bounding-box" {
             cfg.grid_parameterisation = Grid_parameterisation.bbox
         }
+        else if str_result == "mvc" || str_result == "mean-value-coordinates" {
+            cfg.grid_parameterisation = Grid_parameterisation.mvc
+        }
         else {
             fmt.printfln("PVN-ERROR: The grid_parameterisation value '%s' is not valid.")
             fmt.printfln("PVN-ERROR: Valid values are: ")
             fmt.printfln("           + 'polar'")
             fmt.printfln("           + 'bounding-box'")
+            fmt.printfln("           + 'mvc'")
             fmt.printfln("PVN-ERROR: Check input file.")
             os.exit(1)
         }
@@ -163,7 +167,8 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     int_result, found = lua_get_optional_integer(L, "print_every_n_slice")
     if found do cfg.print_every_n_slice = int_result
 
-    if cfg.grid_parameterisation == .rtheta {
+    #partial switch cfg.grid_parameterisation {
+    case .rtheta, .mvc:
         err_msg = "PVN-ERROR: 'no_cross_sections' not set in job input file. An integer is expected."
         cfg.n_xsects = lua_get_integer(L, "no_cross_sections", err_msg)
     }
