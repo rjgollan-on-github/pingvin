@@ -29,8 +29,9 @@ prep_solver :: proc () {
     switch cfg.grid_parameterisation {
     case .rtheta:
         // Prepare (global) r-theta grid
+        edge_vtxs := make(map[VtxId]bool)
         allocate_rtheta_grid(len(global_data.up_grid.vertices))
-        compute_rtheta_grid(&global_data.rtheta_grid, &global_data.up_grid, &global_data.xsects[0])
+        compute_rtheta_grid(&global_data.rtheta_grid, &global_data.up_grid, &global_data.xsects[0], edge_vtxs)
     case .bbox:
         allocate_bbox_grid(len(global_data.up_grid.vertices))
         compute_bbox_grid(&global_data.bbox_grid, &global_data.up_grid, global_data.bbox.corners[0])

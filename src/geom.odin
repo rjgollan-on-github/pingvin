@@ -1,12 +1,12 @@
 package pingvin
 
 
-quad_properties :: proc (q: Quad) -> (area: complex128, normal, t1, t2: Vector3) {
+quad_properties :: proc (q: Quad) -> (area: complex128, normal, t1, t2, ctr: Vector3) {
     A := global_data.vertices[q[0]]
     B := global_data.vertices[q[1]]
     C := global_data.vertices[q[2]]
     D := global_data.vertices[q[3]]
-    ctr := 0.25*(A + B + C + D)
+    ctr = 0.25*(A + B + C + D)
     A_ctr := A - ctr
     B_ctr := B - ctr
     C_ctr := C - ctr
@@ -22,7 +22,7 @@ quad_properties :: proc (q: Quad) -> (area: complex128, normal, t1, t2: Vector3)
     normalize(&t1)
     t2 = cross(normal, t1)
     normalize(&t2)
-    return area, normal, t1, t2
+    return area, normal, t1, t2, ctr
 }
 
 /*

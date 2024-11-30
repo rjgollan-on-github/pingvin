@@ -60,17 +60,6 @@ test_slice :: proc (args : []string) -> (result : bool) {
         global_data.dn_grid.quads[i] = global_data.up_grid.quads[i] + n_offset
         append(&global_data.quads, global_data.dn_grid.quads[i])
     }
-    /*
-    fmt.println("up-quads=")
-    for q in global_data.up_grid.quads {
-        fmt.println(q)
-    }
-    fmt.println("dn-quads=")
-    for q in global_data.dn_grid.quads {
-        fmt.println(q)
-    }
-    */
-
     
     fmt.println("test-slice: Created new quads at downstream location.")
     // Now make 3D slice
@@ -96,7 +85,7 @@ test_slice :: proc (args : []string) -> (result : bool) {
     fmt.printfln("test-slice: solver converged? %v", is_converged)
 
     fmt.println("test-slice: Write flow field to VTK")
-    write_flow_field_as_vtk("single-slice.vtk")
+    write_flow_field_as_vtk("single-slice.vtu")
 
     fmt.println("test-slice: Write SU2 grid")
     write_su2_grid("single-slice.su2")

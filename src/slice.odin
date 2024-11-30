@@ -7,17 +7,20 @@ import "core:log"
 import "base:runtime"
 
 Slice :: struct {
-    id :              Slice_Id,
-    n_cells    :      int,
-    first_cell :      Cell_Id,
-    last_cell  :      Cell_Id,
-    first_x_face:     Interface_Id,
-    last_x_face:      Interface_Id,
-    interior_faces:   [dynamic]Interface_Id,
-    wall_faces:       [dynamic]Interface_Id,
-    symm_faces:       [dynamic]Interface_Id,
-    up_faces:         #soa[]Interface,
-    dn_faces:         #soa[]Interface,
+    id :                          Slice_Id,
+    n_cells    :                  int,
+    n_faces    :                  int,
+    first_cell :                  Cell_Id,
+    last_cell  :                  Cell_Id,
+    first_x_face:                 Interface_Id,
+    last_x_face:                  Interface_Id,
+    interior_faces:               [dynamic]Interface_Id,
+    left_cell_near_wall_faces :   [dynamic]Interface_Id,
+    right_cell_near_wall_faces :  [dynamic]Interface_Id,
+    wall_faces:                   [dynamic]Interface_Id,
+    symm_faces:                   [dynamic]Interface_Id,
+    up_faces:                     #soa[]Interface,
+    dn_faces:                     #soa[]Interface,
 }
 
 Slice_Id :: distinct int
@@ -27,11 +30,12 @@ assemble_initial_upstream_interfaces :: proc(up_g: Grid_2d) {
     // upstream faces (i_minus)
     global_data.m_faces = make(#soa[dynamic]Interface, n_faces)
     for i in 0..<n_faces {
-        area, normal, t1, t2 := quad_properties(global_data.quads[i])
+        area, normal, t1, t2, ctr := quad_properties(global_data.quads[i])
         global_data.m_faces[i].area = area
         global_data.m_faces[i].normal = normal
         global_data.m_faces[i].t1 = t1
         global_data.m_faces[i].t2 = t2
+        global_data.m_faces[i].centroid = ctr
         global_data.m_faces[i].quad = global_data.quads[i]
     }
 }
@@ -99,8 +103,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
 
         // i_plus face (should NOT exist)
         ip_id := Interface_Id((int(slice_no)+1)*n_cells + i)
-        area, normal, t1, t2 := quad_properties(qd)
-        ip_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=qd}
+        area, normal, t1, t2, qctr := quad_properties(qd)
+        ip_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=qd, centroid=qctr}
         ip_face.right_cells = {cell_id, im_face.right_cells[0]}
         ip_face.left_cells = {-1, -1}
         global_data.cells[cell_id].faces[.i_plus] = ip_id
@@ -113,8 +117,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         jm_id, exists = x_face_tags[jm_tag]
         if !exists {
             // face does not yet exist
-            area, normal, t1, t2 := quad_properties(jm_quad)
-            jm_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=jm_quad}
+            area, normal, t1, t2, ctr := quad_properties(jm_quad)
+            jm_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=jm_quad, centroid=ctr}
             jm_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jm_tag] = jm_id
             // Set left cell while we know it, and
@@ -158,8 +162,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         jp_id, exists = x_face_tags[jp_tag]
         if !exists {
             // face does not yet exist
-            area, normal, t1, t2 := quad_properties(jp_quad)
-            jp_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=jp_quad}
+            area, normal, t1, t2, ctr := quad_properties(jp_quad)
+            jp_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=jp_quad, centroid=ctr}
             jp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[jp_tag] = jp_id
             // Set left cell while we know it, and
@@ -203,8 +207,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         km_id, exists = x_face_tags[km_tag]
         if !exists {
             // face does not yet exist
-            area, normal, t1, t2 := quad_properties(km_quad)
-            km_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=km_quad}
+            area, normal, t1, t2, ctr := quad_properties(km_quad)
+            km_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=km_quad, centroid=ctr}
             km_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[km_tag] = km_id
             // Set left cell while we know it, and
@@ -248,8 +252,8 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         kp_id, exists = x_face_tags[kp_tag]
         if !exists {
             // face does not yet exist
-            area, normal, t1, t2 := quad_properties(kp_quad)
-            kp_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=kp_quad}
+            area, normal, t1, t2, ctr := quad_properties(kp_quad)
+            kp_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=kp_quad, centroid=ctr}
             kp_id = Interface_Id(len(global_data.x_faces))
             x_face_tags[kp_tag] = kp_id
             // Set left cell while we know it, and
@@ -293,23 +297,25 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
     // the stencils for the interfaces in the cross-stream direction
     for i in slice.first_x_face..=slice.last_x_face {
         // Fill stencil to left
+        f_id : Interface_Id
         lc_id := global_data.x_faces[i].left_cells[0]
         if lc_id >= 0 {
             // find this interface in that cell's list...
             switch (i) {
             case global_data.cells[lc_id].faces[.j_minus]:
-                id := global_data.cells[lc_id].faces[.j_plus]
-                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+                f_id = global_data.cells[lc_id].faces[.j_plus]
             case global_data.cells[lc_id].faces[.j_plus]:
-                id := global_data.cells[lc_id].faces[.j_minus]
-                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+                f_id = global_data.cells[lc_id].faces[.j_minus]
             case global_data.cells[lc_id].faces[.k_minus]:
-                id := global_data.cells[lc_id].faces[.k_plus]
-                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+                f_id = global_data.cells[lc_id].faces[.k_plus]
             case global_data.cells[lc_id].faces[.k_plus]:
-                id := global_data.cells[lc_id].faces[.k_minus]
-                global_data.x_faces[i].left_cells[1] = global_data.x_faces[id].left_cells[0]
+                f_id = global_data.cells[lc_id].faces[.k_minus]
             }
+        }
+        if lc_id != global_data.x_faces[f_id].left_cells[0] {
+            global_data.x_faces[i].left_cells[1] = global_data.x_faces[f_id].left_cells[0]
+        } else {
+            global_data.x_faces[i].left_cells[1] = global_data.x_faces[f_id].right_cells[0]
         }
         // Fill stencil to right
         rc_id := global_data.x_faces[i].right_cells[0]
@@ -317,18 +323,19 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             // find this interface in that cell's list...
             switch (i) {
             case global_data.cells[rc_id].faces[.j_minus]:
-                id := global_data.cells[rc_id].faces[.j_plus]
-                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+                f_id = global_data.cells[rc_id].faces[.j_plus]
             case global_data.cells[rc_id].faces[.j_plus]:
-                id := global_data.cells[rc_id].faces[.j_minus]
-                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+                f_id = global_data.cells[rc_id].faces[.j_minus]
             case global_data.cells[rc_id].faces[.k_minus]:
-                id := global_data.cells[rc_id].faces[.k_plus]
-                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+                f_id = global_data.cells[rc_id].faces[.k_plus]
             case global_data.cells[rc_id].faces[.k_plus]:
-                id := global_data.cells[rc_id].faces[.k_minus]
-                global_data.x_faces[i].right_cells[1] = global_data.x_faces[id].right_cells[0]
+                f_id = global_data.cells[rc_id].faces[.k_minus]
             }
+        }
+        if rc_id != global_data.x_faces[f_id].left_cells[0] {
+            global_data.x_faces[i].right_cells[1] = global_data.x_faces[f_id].left_cells[0]
+        } else {
+            global_data.x_faces[i].right_cells[1] = global_data.x_faces[f_id].right_cells[0]
         }
     }
     // When building initial slice, we should now check that all boundary faces were assigned.
@@ -351,13 +358,51 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             fmt.println("Exiting!")
             os.exit(1)
         }
+        // We should also extract out the near-wall faces
+        idx_to_remove : [dynamic]int
+        for id, i in slice.interior_faces {
+            if global_data.x_faces[id].left_cells[1] == -1 {
+                append(&slice.left_cell_near_wall_faces, id)
+                append(&idx_to_remove, i)
+                //fmt.printfln("Adding [%d] to left_cell_near_wall_faces", id)
+                //fmt.printfln("To Remove: %d", i)
+            }
+            if global_data.x_faces[id].right_cells[1] == -1 {
+                append(&slice.right_cell_near_wall_faces, id)
+                append(&idx_to_remove, i)
+                //fmt.printfln("Adding [%d] to right_cell_near_wall_faces", id)
+                //fmt.printfln("To Remove: %d", i)
+            }
+        }
+        // Work backwards removing indices otherwise things will shuffle between
+        // our feet as we move early indices and the array entries shrink.
+        #reverse for i in idx_to_remove {
+            //fmt.printfln("Removing: %d", i)
+            ordered_remove(&slice.interior_faces, i)
+            /*
+            for id in slice.interior_faces {
+                fmt.printf("%d ", id)
+            }
+            fmt.println()
+            */
+        }
+        slice.n_faces = len(slice.interior_faces) + len(slice.left_cell_near_wall_faces) + len(slice.right_cell_near_wall_faces) + len(slice.wall_faces) + len(slice.symm_faces)
     }
     else {
         // For all subsequent slices, we can easily construct the arrays of handles by incrementing indices
         slice0 := global_data.slices[0]
-        n_faces := len(slice0.interior_faces) + len(slice0.wall_faces) + len(slice0.symm_faces)
+        slice.n_faces = slice0.n_faces
+        n_faces := slice.n_faces
         append(&slice.interior_faces, ..slice0.interior_faces[:])
         for &face in slice.interior_faces {
+            face += Interface_Id(n_faces*int(slice_no))
+        }
+        append(&slice.left_cell_near_wall_faces, ..slice0.left_cell_near_wall_faces[:])
+        for &face in slice.left_cell_near_wall_faces {
+            face += Interface_Id(n_faces*int(slice_no))
+        }
+        append(&slice.right_cell_near_wall_faces, ..slice0.right_cell_near_wall_faces[:])
+        for &face in slice.right_cell_near_wall_faces {
             face += Interface_Id(n_faces*int(slice_no))
         }
         append(&slice.wall_faces, ..slice0.wall_faces[:])
@@ -426,6 +471,14 @@ compute_interior_fluxes :: proc (slice: ^Slice) {
         f := &global_data.x_faces[f_id]
         f.flux = flux_calc(f.left, f.right)
     }
+    for f_id in slice.left_cell_near_wall_faces {
+        f := &global_data.x_faces[f_id]
+        f.flux = flux_calc(f.left, f.right)
+    }
+    for f_id in slice.right_cell_near_wall_faces {
+        f := &global_data.x_faces[f_id]
+        f.flux = flux_calc(f.left, f.right)
+    }
 }
 
 compute_residuals :: proc (slice: Slice) {
@@ -450,12 +503,17 @@ eval_slice_residual :: proc (slice: ^Slice) {
     update_primitives(slice)
 
     // 2. Apply reconstruction (at interior and boundaries)
-    low_order_reconstruction(slice.interior_faces[:])
+//    low_order_reconstruction(slice.interior_faces[:])
+    high_order_recon_interior(slice.interior_faces[:])
+    low_order_reconstruction(slice.left_cell_near_wall_faces[:])
+    low_order_reconstruction(slice.right_cell_near_wall_faces[:])
     low_order_recon_boundary(slice.wall_faces[:])
     low_order_recon_boundary(slice.symm_faces[:])
     low_order_recon_downstream(slice.dn_faces)
 
     transform_interior_states_to_local_frame(slice.interior_faces[:])
+    transform_interior_states_to_local_frame(slice.left_cell_near_wall_faces[:])
+    transform_interior_states_to_local_frame(slice.right_cell_near_wall_faces[:])
 
     // 3. Compute fluxes
     compute_interior_fluxes(slice)
@@ -468,6 +526,8 @@ eval_slice_residual :: proc (slice: ^Slice) {
     }
 
     transform_interior_flux_to_global_frame(slice.interior_faces[:])
+    transform_interior_flux_to_global_frame(slice.left_cell_near_wall_faces[:])
+    transform_interior_flux_to_global_frame(slice.right_cell_near_wall_faces[:])
 
     // 4. Compute residual per cell
     compute_residuals(slice^)

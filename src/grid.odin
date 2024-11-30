@@ -341,7 +341,7 @@ find_cross_section_points :: proc (xsect: ^Cross_Section, theta: f64) -> (pA, pB
     return pA, pB, false
 }
 
-compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Section) {
+compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Section, edge_vtxs: map[VtxId]bool) {
     for vtxId, i in g.vertices {
         v := global_data.vertices[vtxId]
         r := magnitude_yz(v)
@@ -354,10 +354,16 @@ compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Secti
         theta0 := argument_yz(pA)
         theta1 := argument_yz(pB)
         w := (theta - theta0)/(theta1 - theta0)
-        r_b := (1 - w)*magnitude_yz(pA) + w*magnitude_yz(pB)
-        // Now populate the rtheta grid
-        rtg.r_bar[i] = r/r_b
+        rtg.r_bar[i] = (1 - w)*(r/magnitude_yz(pA)) + w*(r/magnitude_yz(pB))
         rtg.theta[i] = theta
+        // If we are at edge, set r/r_bar to 1.0 precisely
+        if vtxId in edge_vtxs {
+            rtg.r_bar[i] = 1.0
+            fmt.printfln("[%d]: %v  r= %v  theta= %v", vtxId, v, r, theta)
+            fmt.printfln("      pA= %v  r(pA)= %v", pA, magnitude_yz(pA))
+            fmt.printfln("      pB= %v  r(pB)= %v", pB, magnitude_yz(pB))
+            fmt.printfln("   w= %v  r_bar= %v  theta= %v", w, rtg.r_bar[i], rtg.theta[i])
+        }
     }
 }
 
@@ -621,6 +627,12 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
     defer delete_grid_2d(&up_grid)
     defer delete_grid_2d(&dn_grid)
 
+    edge_vtxs := make(map[VtxId]bool)
+    for f in up_grid.wall_boundary.faces {
+        edge_vtxs[f[0]] = true
+        edge_vtxs[f[1]] = true
+    }
+
     loft_end : f64
     idx_loft_end : int
     curr_loft : Cross_Section_Loft
@@ -631,7 +643,12 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
     case .rtheta:
         // Prepare (global) r-theta grid
         allocate_rtheta_grid(len(up_grid.vertices))
-        compute_rtheta_grid(&global_data.rtheta_grid, &up_grid, &global_data.xsects[0])
+        compute_rtheta_grid(&global_data.rtheta_grid, &up_grid, &global_data.xsects[0], edge_vtxs)
+
+        for vtx_id in edge_vtxs {
+            fmt.printfln("edge vertex [%d]: %v", vtx_id, global_data.vertices[vtx_id])
+            fmt.printfln("    r_bar= %v   theta= %v", global_data.rtheta_grid.r_bar[vtx_id], global_data.rtheta_grid.theta[vtx_id])
+        }
 
         // Create initial loft section
         n_seg := len(global_data.xsects[0].vertices)

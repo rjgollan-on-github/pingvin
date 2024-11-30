@@ -6,11 +6,11 @@ import "core:fmt"
 
 
 @(private="file")
-test_grid :: "qcirc.su2"
+test_grid :: "test-assets/duct/qcirc.su2"
 @(private="file")
-test_xsect_dir :: "xsect"
+test_xsect_dir :: "test-assets/duct/xsect"
 @(private="file")
-test_job_file :: "job.lua"
+test_job_file :: "test-assets/duct/job.lua"
 
 TestDuctCmd := Command {
     main = test_duct,

@@ -13,6 +13,7 @@ Interface :: struct {
     normal :      Vector3,
     t1 :          Vector3,
     t2 :          Vector3,
+    centroid :    Vector3,
     flux :        [Conserved_Quantities]complex128,
     left :        [Primitive_Quantities]complex128,
     right :       [Primitive_Quantities]complex128,
