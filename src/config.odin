@@ -19,6 +19,7 @@ Config :: struct {
     p_inflow :                   f64,
     T_inflow :                   f64,
     // Spatial approximations
+    flux_calculator :            Flux_calculator,
     streamwise_flux_reconstruction : bool,
     // Solver settings
     max_newton_steps:            int,
@@ -40,6 +41,7 @@ bounding_box_file = "bounding-box.data"
 output_vtk_file = "pingvin-flow-field.vtu"
 print_every_n_slice = 50
 dx = -1.0
+flux_calculator = "rusanov"
 streamwise_flux_reconstruction = false
 max_newton_steps = 10
 slice_absolute_residual = 1.0e-6
@@ -190,6 +192,24 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     cfg.T_inflow = lua_get_float(L, "T_inflow", err_msg)
 
     // Parameters related to spatial approximations
+    str_result, found = lua_get_optional_string(L, "flux_calculator")
+    str_lower := strings.to_lower(str_result, context.temp_allocator)
+    if found {
+        if str_lower == "rusanov" {
+            cfg.flux_calculator = Flux_calculator.rusanov
+        }
+        else if str_lower == "van_leer" || str_lower == "van-leer" {
+            cfg.flux_calculator = Flux_calculator.van_leer
+        }
+        else {
+            fmt.printfln("PVN-ERROR: The flux_calculator '%s' is not valid.")
+            fmt.printfln("PVN-ERROR: Valid values are: ")
+            fmt.printfln("           + 'rusanov'")
+            fmt.printfln("           + 'van_leer'")
+            fmt.printfln("PVN-ERROR: Check input file.")
+            os.exit(1)
+        }
+    }
     bool_result, found = lua_get_optional_bool(L, "streamwise_flux_reconstruction")
     if found do cfg.streamwise_flux_reconstruction = bool_result
     

@@ -9,6 +9,7 @@ Mach_inflow = 5.76788
 p_inflow = 1000.0 -- Pa
 T_inflow = 250.0  -- K
 
+flux_calculator = "rusanov"
 streamwise_flux_reconstruction = false
 
 -- solver settings
