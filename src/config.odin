@@ -20,6 +20,7 @@ Config :: struct {
     T_inflow :                   f64,
     // Spatial approximations
     flux_calculator :            Flux_calculator,
+    high_order_reconstruction :  bool,
     streamwise_flux_reconstruction : bool,
     // Solver settings
     max_newton_steps:            int,
@@ -42,7 +43,8 @@ output_vtk_file = "pingvin-flow-field.vtu"
 print_every_n_slice = 50
 dx = -1.0
 flux_calculator = "rusanov"
-streamwise_flux_reconstruction = false
+high_order_reconstruction = true
+streamwise_flux_reconstruction = true
 max_newton_steps = 10
 slice_absolute_residual = 1.0e-6
 slice_relative_residual = 1.0e-6
@@ -210,6 +212,10 @@ read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
             os.exit(1)
         }
     }
+    
+    bool_result, found = lua_get_optional_bool(L, "high_order_reconstruction")
+    if found do cfg.high_order_reconstruction = bool_result
+    
     bool_result, found = lua_get_optional_bool(L, "streamwise_flux_reconstruction")
     if found do cfg.streamwise_flux_reconstruction = bool_result
     

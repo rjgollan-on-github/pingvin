@@ -503,12 +503,20 @@ eval_slice_residual :: proc (slice: ^Slice) {
     update_primitives(slice)
 
     // 2. Apply reconstruction (at interior and boundaries)
-//    low_order_reconstruction(slice.interior_faces[:])
-    high_order_recon_interior(slice.interior_faces[:])
-    low_order_reconstruction(slice.left_cell_near_wall_faces[:])
-    low_order_reconstruction(slice.right_cell_near_wall_faces[:])
-    low_order_recon_boundary(slice.wall_faces[:])
-    low_order_recon_boundary(slice.symm_faces[:])
+    if globals.cfg.high_order_reconstruction {
+        high_order_recon_interior(slice.interior_faces[:])
+        high_order_recon_boundary(slice.wall_faces[:])
+        high_order_recon_boundary(slice.symm_faces[:])
+        left_near_wall_reconstruction(slice.left_cell_near_wall_faces[:])
+        right_near_wall_reconstruction(slice.right_cell_near_wall_faces[:])
+    }
+    else {
+        low_order_reconstruction(slice.interior_faces[:])
+        low_order_recon_boundary(slice.wall_faces[:])
+        low_order_recon_boundary(slice.symm_faces[:])
+        low_order_reconstruction(slice.left_cell_near_wall_faces[:])
+        low_order_reconstruction(slice.right_cell_near_wall_faces[:])
+    }
     low_order_recon_downstream(slice.dn_faces)
 
     transform_interior_states_to_local_frame(slice.interior_faces[:])
