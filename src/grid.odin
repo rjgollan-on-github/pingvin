@@ -1,6 +1,5 @@
 package pingvin
 
-
 import "core:os"
 import "core:strings"
 import "core:fmt"
@@ -149,7 +148,7 @@ find_marker_tag :: proc (lines: []string, tag: string) -> (line_start, n_elems: 
     return line_start, n_elems, false
 }
 
-read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitError) {
+read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string, x: f64) -> (err: GridInitError) {
     data, ok := os.read_entire_file(filepath)
     if !ok {
         return FileOpenFailed{filename=filepath}
@@ -183,7 +182,7 @@ read_su2_2d_file :: proc (grid: ^Grid_2d, filepath: string) -> (err: GridInitErr
         z := strconv.atof(tokens[0])
         y := strconv.atof(tokens[1])
         i := strconv.atoi(tokens[2])
-        global_data.vertices[i] = {complex(0.0, 0.0), complex(y, 0.0), complex(z, 0.0)}
+        global_data.vertices[i] = {complex(x, 0.0), complex(y, 0.0), complex(z, 0.0)}
         append(&(grid.vertices), VtxId(i))
     }
 
@@ -359,10 +358,6 @@ compute_rtheta_grid :: proc (rtg: ^Grid_rtheta, g: ^Grid_2d, xsect: ^Cross_Secti
         // If we are at edge, set r/r_bar to 1.0 precisely
         if vtxId in edge_vtxs {
             rtg.r_bar[i] = 1.0
-            fmt.printfln("[%d]: %v  r= %v  theta= %v", vtxId, v, r, theta)
-            fmt.printfln("      pA= %v  r(pA)= %v", pA, magnitude_yz(pA))
-            fmt.printfln("      pB= %v  r(pB)= %v", pB, magnitude_yz(pB))
-            fmt.printfln("   w= %v  r_bar= %v  theta= %v", w, rtg.r_bar[i], rtg.theta[i])
         }
     }
 }
@@ -618,7 +613,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
 
     // Read grid at first plane
     up_grid : Grid_2d
-    err := read_su2_2d_file(&up_grid, cfg.grid2d_file)
+    err := read_su2_2d_file(&up_grid, cfg.grid2d_file, start)
     if err != nil {
         fmt.printfln("pvn: Error reading 2D grid file '%s'", cfg.grid2d_file)
     }
@@ -644,11 +639,6 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
         // Prepare (global) r-theta grid
         allocate_rtheta_grid(len(up_grid.vertices))
         compute_rtheta_grid(&global_data.rtheta_grid, &up_grid, &global_data.xsects[0], edge_vtxs)
-
-        for vtx_id in edge_vtxs {
-            fmt.printfln("edge vertex [%d]: %v", vtx_id, global_data.vertices[vtx_id])
-            fmt.printfln("    r_bar= %v   theta= %v", global_data.rtheta_grid.r_bar[vtx_id], global_data.rtheta_grid.theta[vtx_id])
-        }
 
         // Create initial loft section
         n_seg := len(global_data.xsects[0].vertices)
@@ -683,7 +673,7 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
         allocate_cross_section(&curr_xsect, n_seg)
     }
 
-    for x := start + dx; x < (end + 0.1*dx); x += dx {
+    for x := start + dx; x < end; x += dx {
         // We might need to create a new loft
         if x > loft_end {
             switch cfg.grid_parameterisation {
@@ -723,6 +713,23 @@ generate_3d_grid :: proc (cfg: Config) -> (result: bool) {
         // Replace up_grid with dn_grid for next step.
         copy_grid_2d(&up_grid, &dn_grid)
     }
+    // Add final slice at x = end
+    switch cfg.grid_parameterisation {
+        case .rtheta:
+            create_cross_section_loft(&curr_loft, &global_data.xsects[len(global_data.xsects)-2], &global_data.xsects[len(global_data.xsects)-1])
+            create_cross_section(&curr_xsect, &curr_loft, end)
+            compute_grid_2d(&dn_grid, &up_grid, &global_data.rtheta_grid, &curr_xsect)
+        case .mvc:
+            create_cross_section_loft(&curr_loft, &global_data.xsects[len(global_data.xsects)-2], &global_data.xsects[len(global_data.xsects)-1])
+            create_cross_section(&curr_xsect, &curr_loft, end)
+            compute_grid_2d_from_mvc(&dn_grid, &up_grid, &global_data.mvc_grid, &curr_xsect)
+        case .bbox:
+            create_bbox_rail(&curr_rail, &global_data.bbox, len(global_data.bbox.corners)-1)
+            t := bezier_t_from_x(curr_rail.bezier, end)
+            corner := bezier_eval(curr_rail.bezier, t)
+            compute_grid_2d_from_bbox(&dn_grid, &up_grid, &global_data.bbox_grid, corner)
+    }
+    add_3d_slice_of_hexes(&up_grid, &dn_grid)
 
     if cfg.grid_parameterisation == .rtheta {
         delete_cross_section_loft(&curr_loft)
