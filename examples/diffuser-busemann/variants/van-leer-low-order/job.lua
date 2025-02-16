@@ -10,6 +10,7 @@ p_inflow = 1000.0 -- Pa
 T_inflow = 250.0  -- K
 
 flux_calculator = "van-leer"
+high_order_reconstruction = false
 streamwise_flux_reconstruction = false
 
 -- solver settings

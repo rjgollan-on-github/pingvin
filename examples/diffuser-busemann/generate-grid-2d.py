@@ -24,9 +24,10 @@ bfn = sys.argv[2]
 gmsh.initialize()
 gmsh.model.add(bfn)
 
+R = 1.216637e+00	
 a = gmsh.model.geo.addPoint(0.0, 0.0, 0.0)
-b = gmsh.model.geo.addPoint(0.0, 1.0, 0.0)
-c = gmsh.model.geo.addPoint(1.0, 0.0, 0.0)
+b = gmsh.model.geo.addPoint(0.0, R, 0.0)
+c = gmsh.model.geo.addPoint(R, 0.0, 0.0)
 
 ba = gmsh.model.geo.addLine(b, a)
 ac = gmsh.model.geo.addLine(a, c)
