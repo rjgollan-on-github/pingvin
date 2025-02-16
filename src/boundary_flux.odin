@@ -36,13 +36,13 @@ apply_inflow :: proc (slice: ^Slice) {
 
 apply_downstream_flux :: proc (faces: #soa[]Interface) {
     for &f in faces {
-        rho := f.right[.rho]
-        p := f.right[.p]
-        u := f.right[.xvel]
-        v := f.right[.yvel]
-        w := f.right[.zvel]
+        rho := f.left[.rho]
+        p := f.left[.p]
+        u := f.left[.xvel]
+        v := f.left[.yvel]
+        w := f.left[.zvel]
         ke := 0.5*(u*u + v*v + w*w)
-        E := f.right[.e] + ke
+        E := f.left[.e] + ke
         f.flux[.mass] = rho*u
         f.flux[.xmom] = f.flux[.mass]*u + p
         f.flux[.ymom] = f.flux[.mass]*v
@@ -57,26 +57,21 @@ bap_downstream_flux :: proc (P, Pm1 : [Primitive_Quantities]complex128) -> (flux
     f_j_mass := P[.rho] * P[.xvel]
     f_jm1_mass := Pm1[.rho] * Pm1[.xvel]
     s_l := (f_j_mass - f_jm1_mass)/dx
-    s_r := complex(0.0, 0.0)
-    s_j := slope_average(s_l, s_r)
     flux[.mass] = f_j_mass + s_l*dx/2.0
     // x-mom
     f_j := f_j_mass * P[.xvel] + P[.p]
     f_jm1 := f_jm1_mass * Pm1[.xvel] + Pm1[.p]
     s_l = (f_j - f_jm1)/dx
-    s_j = slope_average(s_l, s_r)
     flux[.xmom] = f_j + s_l*dx/2.0
     // y-mom
     f_j = f_j_mass * P[.yvel]
     f_jm1 = f_jm1_mass * Pm1[.yvel]
     s_l = (f_j - f_jm1)/dx
-    s_j = slope_average(s_l, s_r)
     flux[.ymom] = f_j + s_l*dx/2.0
     // z-mom
     f_j = f_j_mass * P[.zvel]
     f_jm1 = f_jm1_mass * Pm1[.zvel]
     s_l = (f_j - f_jm1)/dx
-    s_j = slope_average(s_l, s_r)
     flux[.zmom] = f_j + s_l*dx/2.0
     // energy
     E := P[.e] + 0.5*(P[.xvel]*P[.xvel] + P[.yvel]*P[.yvel] + P[.zvel]*P[.zvel])
@@ -84,7 +79,6 @@ bap_downstream_flux :: proc (P, Pm1 : [Primitive_Quantities]complex128) -> (flux
     E = Pm1[.e] + 0.5*(Pm1[.xvel]*Pm1[.xvel] + Pm1[.yvel]*Pm1[.yvel] + Pm1[.zvel]*Pm1[.zvel])
     f_jm1 = f_j_mass * E + Pm1[.p]*Pm1[.xvel]
     s_l = (f_j - f_jm1)/dx
-    s_j = slope_average(s_l, s_r)
     flux[.energy] = f_j + s_l*dx/2.0
 
     return flux

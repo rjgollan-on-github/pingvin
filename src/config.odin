@@ -128,6 +128,7 @@ lua_get_optional_bool :: proc (L: ^lua.State, field: cstring) -> (result: bool, 
 read_config_from_lua_file :: proc (filename: string) -> (cfg: Config) {
     L := lua.L_newstate()
     lua.open_base(L)
+    lua.L_openlibs(L)
     lua.L_dostring(L, defaults)
     lua.L_dofile(L, strings.unsafe_string_to_cstring(filename))
 

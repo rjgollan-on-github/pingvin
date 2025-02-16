@@ -37,7 +37,7 @@ test_slice :: proc (args : []string) -> (result : bool) {
 
     fmt.println("test-slice: Begin...")
     globals.cfg = read_config_from_lua_file(test_job_file)
-    read_su2_2d_file(&global_data.up_grid, test_grid)
+    read_su2_2d_file(&global_data.up_grid, test_grid, 0.0)
     free_all(context.temp_allocator)
     allocate_grid_2d(&global_data.dn_grid, len(global_data.up_grid.vertices), len(global_data.up_grid.quads))
     fmt.println("test-slice: Allocated grids.")

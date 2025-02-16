@@ -93,20 +93,18 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
         im_face := global_data.m_faces[im_id]
         global_data.cells[cell_id].faces[.i_minus] = im_id
         global_data.cells[cell_id].outsigns[.i_minus] = complex(-1, 0)
-        global_data.m_faces[im_id].left_cells = {cell_id, -1}
-        if (global_data.m_faces[im_id].right_cells[0] >= 0) {
-            // We can set the second left cell of the previous cell.
-            prev_cell_id := global_data.m_faces[im_id].right_cells[0]
-            prev_face_id := global_data.cells[prev_cell_id].faces[.i_minus]
-            global_data.m_faces[prev_face_id].left_cells[1] = cell_id
-        }
+        global_data.m_faces[im_id].right_cells = {cell_id, -1}
 
         // i_plus face (should NOT exist)
         ip_id := Interface_Id((int(slice_no)+1)*n_cells + i)
         area, normal, t1, t2, qctr := quad_properties(qd)
         ip_face := Interface{area=area, normal=normal, t1=t1, t2=t2, quad=qd, centroid=qctr}
-        ip_face.right_cells = {cell_id, im_face.right_cells[0]}
-        ip_face.left_cells = {-1, -1}
+        if slice_no == 0 {
+            ip_face.left_cells = {cell_id, -1}
+        }
+        else {
+            ip_face.left_cells = {cell_id, im_face.left_cells[0]}
+        }
         global_data.cells[cell_id].faces[.i_plus] = ip_id
         global_data.cells[cell_id].outsigns[.i_plus] = complex(1, 0)
         append_soa(&global_data.m_faces, ip_face)
@@ -364,27 +362,16 @@ assemble_slice_cells_and_interfaces :: proc(slice: ^Slice, up_q, dn_q: []Quad, s
             if global_data.x_faces[id].left_cells[1] == -1 {
                 append(&slice.left_cell_near_wall_faces, id)
                 append(&idx_to_remove, i)
-                //fmt.printfln("Adding [%d] to left_cell_near_wall_faces", id)
-                //fmt.printfln("To Remove: %d", i)
             }
             if global_data.x_faces[id].right_cells[1] == -1 {
                 append(&slice.right_cell_near_wall_faces, id)
                 append(&idx_to_remove, i)
-                //fmt.printfln("Adding [%d] to right_cell_near_wall_faces", id)
-                //fmt.printfln("To Remove: %d", i)
             }
         }
-        // Work backwards removing indices otherwise things will shuffle between
+        // Work backwards removing indices otherwise things will shuffle beneath
         // our feet as we move early indices and the array entries shrink.
         #reverse for i in idx_to_remove {
-            //fmt.printfln("Removing: %d", i)
             ordered_remove(&slice.interior_faces, i)
-            /*
-            for id in slice.interior_faces {
-                fmt.printf("%d ", id)
-            }
-            fmt.println()
-            */
         }
         slice.n_faces = len(slice.interior_faces) + len(slice.left_cell_near_wall_faces) + len(slice.right_cell_near_wall_faces) + len(slice.wall_faces) + len(slice.symm_faces)
     }
@@ -509,6 +496,12 @@ eval_slice_residual :: proc (slice: ^Slice) {
         high_order_recon_boundary(slice.symm_faces[:])
         left_near_wall_reconstruction(slice.left_cell_near_wall_faces[:])
         right_near_wall_reconstruction(slice.right_cell_near_wall_faces[:])
+        if (slice.id == 0) {
+            low_order_recon_downstream(slice.dn_faces)
+        }
+        else {
+            high_order_recon_downstream(slice.dn_faces)
+        }
     }
     else {
         low_order_reconstruction(slice.interior_faces[:])
@@ -516,8 +509,8 @@ eval_slice_residual :: proc (slice: ^Slice) {
         low_order_recon_boundary(slice.symm_faces[:])
         low_order_reconstruction(slice.left_cell_near_wall_faces[:])
         low_order_reconstruction(slice.right_cell_near_wall_faces[:])
+        low_order_recon_downstream(slice.dn_faces)
     }
-    low_order_recon_downstream(slice.dn_faces)
 
     transform_interior_states_to_local_frame(slice.interior_faces[:])
     transform_interior_states_to_local_frame(slice.left_cell_near_wall_faces[:])
@@ -527,12 +520,16 @@ eval_slice_residual :: proc (slice: ^Slice) {
     compute_interior_fluxes(slice)
     apply_slip_wall_flux(slice.wall_faces[:])
     apply_symm_flux(slice.symm_faces[:])
+    apply_downstream_flux(slice.dn_faces)
+    /*
+    streamwise flux reconstruction is very diffuse, perhaps implementation is buggy
+    DISABLED presently.
     if (slice.id == 0) || (globals.cfg.streamwise_flux_reconstruction == false) {
         apply_downstream_flux(slice.dn_faces)
     } else {
         reconstruct_downstream_flux(slice)
     }
-
+    */
     transform_interior_flux_to_global_frame(slice.interior_faces[:])
     transform_interior_flux_to_global_frame(slice.left_cell_near_wall_faces[:])
     transform_interior_flux_to_global_frame(slice.right_cell_near_wall_faces[:])

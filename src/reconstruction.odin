@@ -15,7 +15,26 @@ low_order_reconstruction :: proc (faces: []Interface_Id) {
 // For downstream faces
 low_order_recon_downstream :: proc (faces: #soa[]Interface) {
     for &face in faces {
-        face.right = global_data.cells[face.right_cells[0]].pqs
+        face.left = global_data.cells[face.left_cells[0]].pqs
+    }
+}
+
+high_order_recon_downstream :: proc (faces: #soa[]Interface) {
+    pqs_for_reconstruction := [?]Primitive_Quantities{ .rho, .p, .xvel, .yvel, .zvel }
+    sR := complex(0.0, 0.0)
+    for &face in faces {
+        L1 := face.left_cells[1]
+        L0 := face.left_cells[0]
+        dx := magnitude(global_data.cells[L0].centroid - global_data.cells[L1].centroid)
+        dxL := magnitude(face.centroid - global_data.cells[L0].centroid)
+        for pq in pqs_for_reconstruction {
+            sL := (global_data.cells[L0].pqs[pq] - global_data.cells[L1].pqs[pq])/dx
+            //s := slope_average(sL, sR)
+            face.left[pq] = global_data.cells[L0].pqs[pq] + sL*dxL
+        }
+        // Fill out other thermo quantities
+        face.left[.T] = face.left[.p]/(face.left[.rho]*globals.R_gas)
+        face.left[.e] = face.left[.T]*globals.R_gas/(globals.gamma - 1.0)
     }
 }
 
