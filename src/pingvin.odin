@@ -1,3 +1,7 @@
+#+feature dynamic-literals
+// ^^^ This exception is tolerable because it's the single high-level controller.
+// There is an implicit allocation to context.allocator for the PvnCommands map.
+
 package pingvin
 
 import "core:os"
