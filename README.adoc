@@ -21,10 +21,11 @@ You will need:
 * Python gmsh package (or another way to generate a 2D quad mesh)
 * Python scipy package
 * Python click package
+* Python tqdm package
 
-Additionaly, on macos, install lzlib via brew:
+Additionaly, on macos, install zlib via brew:
 
-* brew install lzlib
+* brew install zlib
 
 
 === Odin compiler
