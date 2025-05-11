@@ -19,6 +19,7 @@ Command :: struct {
 
 PvnCommands := map[string]Command{
     "march" = MarchCmd,
+    "waddle" = MarchCmd, // alias: waddle is a collective noun for penguins moving
     "preview-grid" = PreviewGridCmd,
     "test-slice" = TestSliceCmd,
     "test-duct" = TestDuctCmd,
